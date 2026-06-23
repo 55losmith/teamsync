@@ -289,7 +289,7 @@ function MainPage(props) {
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
     dues: <DuesPage {...pageProps} editable={isCoach} />,
     messages: <MessagesPage {...pageProps} editable={isCoach} />,
-    settings: <SettingsPage {...pageProps} />,
+    settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
   return pages[props.activePage] || pages.dashboard
 }
@@ -956,7 +956,7 @@ function MessagesPage({ data, editable, onRefresh, setMessage, team }) {
   )
 }
 
-function SettingsPage({ onRefresh, setMessage, team }) {
+function SettingsPage({ data, onRefresh, setMessage, team }) {
   const [form, setForm] = useState({
     name: team?.name || '',
     season: team?.season || '',
@@ -1021,7 +1021,60 @@ function SettingsPage({ onRefresh, setMessage, team }) {
           {copyStatus && <p className="form-help">{copyStatus}</p>}
         </div>
       </section>
+      <TeamMembersPanel data={data} />
     </div>
+  )
+}
+
+function TeamMembersPanel({ data }) {
+  const coaches = data.members.filter((member) => member.role === 'coach')
+  const parents = data.members.filter((member) => member.role === 'parent')
+
+  return (
+    <section className="member-directory">
+      <div className="section-bar">
+        <h3>Team Members <span>{data.members.length}</span></h3>
+      </div>
+      <div className="member-columns">
+        <MemberGroup members={coaches} title="Coaches" />
+        <MemberGroup members={parents} parentClaims={data.parentClaims} roster={data.roster} title="Parents" />
+      </div>
+    </section>
+  )
+}
+
+function MemberGroup({ members, parentClaims = [], roster = [], title }) {
+  return (
+    <div className="panel member-list">
+      <h3>{title} <span>{members.length}</span></h3>
+      {members.map((member) => (
+        <MemberRow key={member.id} member={member} parentClaims={parentClaims} roster={roster} />
+      ))}
+      {!members.length && <EmptyState title={`No ${title.toLowerCase()} yet`} body="Signed-up team members will appear here." />}
+    </div>
+  )
+}
+
+function MemberRow({ member, parentClaims, roster }) {
+  const claimedPlayerIds = new Set(parentClaims.filter((claim) => claim.parent_profile_id === member.id).map((claim) => claim.roster_member_id))
+  const claimedPlayers = roster.filter((player) => (
+    claimedPlayerIds.has(player.id) ||
+    (member.role === 'parent' && player.parent_profile_id === member.id) ||
+    (member.role === 'parent' && player.parent_email?.toLowerCase() === member.email?.toLowerCase())
+  ))
+
+  return (
+    <article className="member-row">
+      <span>{initials(member.full_name || member.email)}</span>
+      <div>
+        <strong>{member.full_name || 'Unnamed member'}</strong>
+        <p>{member.email || 'No email on file'}</p>
+        {member.role === 'parent' && (
+          <small>{claimedPlayers.length ? `Players: ${claimedPlayers.map((player) => player.player_name).join(', ')}` : 'No players claimed yet'}</small>
+        )}
+      </div>
+      <Badge label={member.role} />
+    </article>
   )
 }
 

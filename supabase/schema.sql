@@ -356,7 +356,13 @@ drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select
 to authenticated
-using (id = auth.uid() or team_id = public.current_team_id());
+using (
+  id = auth.uid()
+  or (
+    team_id = public.current_team_id()
+    and public.current_role() = 'coach'
+  )
+);
 
 drop policy if exists "Users can create their own profile" on public.profiles;
 create policy "Users can create their own profile"

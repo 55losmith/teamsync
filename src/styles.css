@@ -381,6 +381,77 @@ p {
   min-height: 96px;
 }
 
+.member-directory {
+  display: grid;
+  gap: 14px;
+}
+
+.member-columns {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 20px;
+}
+
+.member-list {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.member-list h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf1f6;
+  font-size: 0.98rem;
+}
+
+.member-list h3 span {
+  border-radius: 999px;
+  background: #eaf0f7;
+  color: #516179;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+}
+
+.member-row {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.member-row:last-child {
+  border-bottom: 0;
+}
+
+.member-row > span:first-child {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eaf0f7;
+  color: #334155;
+  font-weight: 900;
+}
+
+.member-row p,
+.member-row small {
+  display: block;
+  color: #526580;
+  line-height: 1.45;
+}
+
+.member-row small {
+  margin-top: 4px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -933,6 +1004,7 @@ p {
 
   .stats,
   .dashboard-columns,
+  .member-columns,
   .two-panels,
   .auth-grid,
   .two-col,
