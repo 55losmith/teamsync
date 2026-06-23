@@ -314,7 +314,14 @@ function AuthScreen() {
     setMessage('')
 
     const response = isSignup
-      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, role } } })
+      ? await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName, role },
+          emailRedirectTo: window.location.origin,
+        },
+      })
       : await supabase.auth.signInWithPassword({ email, password })
 
     if (response.error) setMessage(response.error.message)
