@@ -50,6 +50,21 @@ alter table public.roster_members add column if not exists throws text;
 alter table public.roster_members add column if not exists parent_phone text;
 alter table public.roster_members add column if not exists parent_profile_id uuid references public.profiles(id) on delete set null;
 
+create table if not exists public.roster_parent_claims (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  roster_member_id uuid not null references public.roster_members(id) on delete cascade,
+  parent_profile_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (roster_member_id, parent_profile_id)
+);
+
+insert into public.roster_parent_claims (team_id, roster_member_id, parent_profile_id)
+select team_id, id, parent_profile_id
+from public.roster_members
+where parent_profile_id is not null
+on conflict (roster_member_id, parent_profile_id) do nothing;
+
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams(id) on delete cascade,
@@ -182,6 +197,7 @@ for each row execute procedure public.handle_new_user();
 alter table public.teams enable row level security;
 alter table public.profiles enable row level security;
 alter table public.roster_members enable row level security;
+alter table public.roster_parent_claims enable row level security;
 alter table public.events enable row level security;
 alter table public.dues enable row level security;
 alter table public.announcements enable row level security;
@@ -243,6 +259,7 @@ set search_path = public
 as $$
 declare
   v_profile public.profiles%rowtype;
+  v_player public.roster_members%rowtype;
   v_player_id uuid;
 begin
   select * into v_profile
@@ -257,21 +274,29 @@ begin
     raise exception 'Only parent accounts can claim players';
   end if;
 
+  select * into v_player
+  from public.roster_members
+  where id = p_roster_member_id
+    and team_id = v_profile.team_id;
+
+  if v_player.id is null then
+    raise exception 'That player is not on your team';
+  end if;
+
+  insert into public.roster_parent_claims (team_id, roster_member_id, parent_profile_id)
+  values (v_profile.team_id, p_roster_member_id, v_profile.id)
+  on conflict (roster_member_id, parent_profile_id) do nothing
+  returning roster_member_id into v_player_id;
+
   update public.roster_members
   set
-    parent_profile_id = v_profile.id,
+    parent_profile_id = coalesce(parent_profile_id, v_profile.id),
     parent_name = coalesce(nullif(parent_name, ''), v_profile.full_name),
     parent_email = coalesce(nullif(parent_email, ''), v_profile.email)
   where id = p_roster_member_id
-    and team_id = v_profile.team_id
-    and (parent_profile_id is null or parent_profile_id = v_profile.id)
-  returning id into v_player_id;
+    and team_id = v_profile.team_id;
 
-  if v_player_id is null then
-    raise exception 'That player is already claimed or is not on your team';
-  end if;
-
-  return v_player_id;
+  return p_roster_member_id;
 end;
 $$;
 
@@ -283,6 +308,13 @@ set search_path = public
 stable
 as $$
   select exists (
+    select 1
+    from public.roster_parent_claims
+    where roster_member_id = p_roster_member_id
+      and team_id = public.current_team_id()
+      and parent_profile_id = auth.uid()
+  )
+  or exists (
     select 1
     from public.roster_members
     where id = p_roster_member_id
@@ -367,6 +399,35 @@ using (team_id = public.current_team_id());
 drop policy if exists "Coaches can manage roster" on public.roster_members;
 create policy "Coaches can manage roster"
 on public.roster_members for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read parent claims" on public.roster_parent_claims;
+create policy "Team members can read parent claims"
+on public.roster_parent_claims for select
+to authenticated
+using (
+  team_id = public.current_team_id()
+  and (
+    public.current_role() = 'coach'
+    or parent_profile_id = auth.uid()
+  )
+);
+
+drop policy if exists "Parents can create their own claims" on public.roster_parent_claims;
+create policy "Parents can create their own claims"
+on public.roster_parent_claims for insert
+to authenticated
+with check (
+  team_id = public.current_team_id()
+  and public.current_role() = 'parent'
+  and parent_profile_id = auth.uid()
+);
+
+drop policy if exists "Coaches can manage parent claims" on public.roster_parent_claims;
+create policy "Coaches can manage parent claims"
+on public.roster_parent_claims for all
 to authenticated
 using (team_id = public.current_team_id() and public.current_role() = 'coach')
 with check (team_id = public.current_team_id() and public.current_role() = 'coach');

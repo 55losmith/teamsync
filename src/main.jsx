@@ -35,7 +35,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [team, setTeam] = useState(null)
-  const [data, setData] = useState({ roster: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
   const [activePage, setActivePage] = useState('dashboard')
@@ -52,7 +52,7 @@ function App() {
       setSession(nextSession)
       setProfile(null)
       setTeam(null)
-      setData({ roster: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setActivePage('dashboard')
     })
 
@@ -105,14 +105,15 @@ function App() {
 
     if (!profileRow.team_id) {
       setTeam(null)
-      setData({ roster: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setLoading(false)
       return
     }
 
-    const [teamResult, rosterResult, eventResult, dueResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
+    const [teamResult, rosterResult, claimResult, eventResult, dueResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
       supabase.from('teams').select('*').eq('id', profileRow.team_id).maybeSingle(),
       supabase.from('roster_members').select('*').eq('team_id', profileRow.team_id).order('player_name'),
+      supabase.from('roster_parent_claims').select('*').eq('team_id', profileRow.team_id),
       supabase.from('events').select('*').eq('team_id', profileRow.team_id).order('starts_at'),
       supabase
         .from('dues')
@@ -152,12 +153,13 @@ function App() {
         .order('created_at', { ascending: false }),
     ])
 
-    const error = teamResult.error || rosterResult.error || eventResult.error || dueResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
+    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
     if (error) setMessage(error.message)
 
     setTeam(teamResult.data || null)
     setData({
       roster: rosterResult.data || [],
+      parentClaims: claimResult.data || [],
       events: eventResult.data || [],
       dues: dueResult.data || [],
       announcements: announcementResult.data || [],
@@ -447,8 +449,9 @@ function JoinTeam({ onDone }) {
 function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage, team }) {
   const isParent = profile.role === 'parent'
   const claimRoster = fullData?.roster || data.roster
-  const claimedPlayers = getClaimedPlayers(claimRoster, profile)
-  const unclaimedPlayers = claimRoster.filter((player) => !player.parent_profile_id)
+  const claimRecords = fullData?.parentClaims || data.parentClaims || []
+  const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
+  const claimablePlayers = claimRoster.filter((player) => !claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id))
   const totals = getTotals(data.dues)
   const upcoming = data.events.filter((event) => new Date(event.starts_at) >= new Date()).slice(0, 3)
   const nextEvent = upcoming[0]
@@ -458,7 +461,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   return (
     <div className="page-stack">
       <PageHeader title={isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
-      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={unclaimedPlayers} profile={profile} setMessage={setMessage} />}
+      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -516,7 +519,9 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   const [showForm, setShowForm] = useState(false)
   const isParent = profile.role === 'parent'
   const claimRoster = fullData?.roster || data.roster
-  const claimedPlayers = getClaimedPlayers(claimRoster, profile)
+  const claimRecords = fullData?.parentClaims || data.parentClaims || []
+  const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
+  const claimablePlayers = claimRoster.filter((player) => !claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id))
   const roster = data.roster.filter((player) => `${player.player_name} ${player.jersey_number}`.toLowerCase().includes(query.toLowerCase()))
 
   async function submit(event) {
@@ -578,7 +583,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   return (
     <div className="page-stack">
       <PageHeader title="Roster" subtitle={`${data.roster.length} players on the team`} action={editable && '+ Add Player'} onAction={() => setShowForm(!showForm)} />
-      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimRoster.filter((player) => !player.parent_profile_id)} profile={profile} setMessage={setMessage} />}
+      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {copyStatus && <div className="notice">{copyStatus}</div>}
       <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕ Search by name or jersey number..." />
       {editable && showForm && (
@@ -617,6 +622,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
             onInviteParent={() => inviteParent(player)}
             onSaveEdit={saveEdit}
             player={player}
+            isClaimedByCurrentParent={claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id)}
             profile={profile}
           />
         ))}
@@ -1092,7 +1098,7 @@ function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMess
           <option value="">Claim a player</option>
           {players.map((player) => <option key={player.id} value={player.id}>#{player.jersey_number || '-'} {player.player_name}</option>)}
         </select>
-        {!players.length && <small>All rostered players already have a parent attached. Ask a coach if yours is missing.</small>}
+        {!players.length && <small>You have claimed every player currently available to you.</small>}
         {claimingId && <small>Claiming player...</small>}
         <small>Signed in as {profile.email}</small>
       </div>
@@ -1100,9 +1106,8 @@ function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMess
   )
 }
 
-function PlayerRow({ editable, editForm, isEditing, onCancelEdit, onEdit, onEditForm, onInviteParent, onSaveEdit, player, profile }) {
+function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, onCancelEdit, onEdit, onEditForm, onInviteParent, onSaveEdit, player }) {
   const positions = splitTags(player.position)
-  const isClaimedByCurrentParent = profile?.role === 'parent' && (player.parent_profile_id === profile.id || player.parent_email?.toLowerCase() === profile.email?.toLowerCase())
 
   if (isEditing) {
     return (
@@ -1279,7 +1284,7 @@ function Badge({ label }) {
 }
 
 function getParentScopedData(data, profile) {
-  const claimedPlayers = getClaimedPlayers(data.roster, profile)
+  const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const claimedPlayerIds = new Set(claimedPlayers.map((player) => player.id))
   const conversations = data.conversations.filter((conversation) => isConversationForProfile(conversation, profile, claimedPlayerIds))
   const conversationIds = new Set(conversations.map((conversation) => conversation.id))
@@ -1301,9 +1306,15 @@ function isConversationForProfile(conversation, profile, claimedPlayerIds) {
   return false
 }
 
-function getClaimedPlayers(roster, profile) {
+function getClaimedPlayers(roster, profile, claims = []) {
   if (!profile?.email) return []
+  const claimedPlayerIds = new Set(
+    claims
+      .filter((claim) => claim.parent_profile_id === profile.id)
+      .map((claim) => claim.roster_member_id),
+  )
   return roster.filter((player) => (
+    claimedPlayerIds.has(player.id) ||
     player.parent_profile_id === profile.id ||
     player.parent_email?.toLowerCase() === profile.email.toLowerCase()
   ))
