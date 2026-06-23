@@ -275,6 +275,51 @@ begin
 end;
 $$;
 
+create or replace function public.is_claimed_roster_member(p_roster_member_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.roster_members
+    where id = p_roster_member_id
+      and team_id = public.current_team_id()
+      and parent_profile_id = auth.uid()
+  );
+$$;
+
+create or replace function public.can_read_conversation(p_conversation_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_conversation public.conversations%rowtype;
+begin
+  select * into v_conversation
+  from public.conversations
+  where id = p_conversation_id;
+
+  if v_conversation.id is null or v_conversation.team_id <> public.current_team_id() then
+    return false;
+  end if;
+
+  if public.current_role() = 'coach' then
+    return true;
+  end if;
+
+  return v_conversation.created_by = auth.uid()
+    or v_conversation.recipient_type in ('all_team', 'all_parents')
+    or v_conversation.recipient_profile_id = auth.uid()
+    or public.is_claimed_roster_member(v_conversation.roster_member_id);
+end;
+$$;
+
 drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select
@@ -343,7 +388,13 @@ drop policy if exists "Team members can read dues" on public.dues;
 create policy "Team members can read dues"
 on public.dues for select
 to authenticated
-using (team_id = public.current_team_id());
+using (
+  team_id = public.current_team_id()
+  and (
+    public.current_role() = 'coach'
+    or public.is_claimed_roster_member(roster_member_id)
+  )
+);
 
 drop policy if exists "Coaches can manage dues" on public.dues;
 create policy "Coaches can manage dues"
@@ -382,32 +433,36 @@ drop policy if exists "Team members can read conversations" on public.conversati
 create policy "Team members can read conversations"
 on public.conversations for select
 to authenticated
-using (team_id = public.current_team_id());
+using (public.can_read_conversation(id));
 
 drop policy if exists "Team members can create conversations" on public.conversations;
 create policy "Team members can create conversations"
 on public.conversations for insert
 to authenticated
-with check (team_id = public.current_team_id());
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
 
 drop policy if exists "Team members can update conversations" on public.conversations;
 create policy "Team members can update conversations"
 on public.conversations for update
 to authenticated
-using (team_id = public.current_team_id())
-with check (team_id = public.current_team_id());
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
 
 drop policy if exists "Team members can read conversation messages" on public.conversation_messages;
 create policy "Team members can read conversation messages"
 on public.conversation_messages for select
 to authenticated
-using (team_id = public.current_team_id());
+using (team_id = public.current_team_id() and public.can_read_conversation(conversation_id));
 
 drop policy if exists "Team members can create conversation messages" on public.conversation_messages;
 create policy "Team members can create conversation messages"
 on public.conversation_messages for insert
 to authenticated
-with check (team_id = public.current_team_id());
+with check (
+  team_id = public.current_team_id()
+  and sender_id = auth.uid()
+  and public.can_read_conversation(conversation_id)
+);
 
 drop policy if exists "Users can read their notifications" on public.notifications;
 create policy "Users can read their notifications"

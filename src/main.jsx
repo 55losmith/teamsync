@@ -278,14 +278,16 @@ function Brand({ team }) {
 
 function MainPage(props) {
   const isCoach = props.profile.role === 'coach'
+  const pageData = isCoach ? props.data : getParentScopedData(props.data, props.profile)
+  const pageProps = { ...props, data: pageData, fullData: props.data }
   const pages = {
-    dashboard: <DashboardPage {...props} />,
-    roster: <RosterPage {...props} editable={isCoach} />,
-    schedule: <SchedulePage {...props} editable={isCoach} />,
-    pitch: <PitchCountsPage {...props} editable={isCoach} />,
-    dues: <DuesPage {...props} editable={isCoach} />,
-    messages: <MessagesPage {...props} editable={isCoach} />,
-    settings: <SettingsPage {...props} />,
+    dashboard: <DashboardPage {...pageProps} />,
+    roster: <RosterPage {...pageProps} editable={isCoach} />,
+    schedule: <SchedulePage {...pageProps} editable={isCoach} />,
+    pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
+    dues: <DuesPage {...pageProps} editable={isCoach} />,
+    messages: <MessagesPage {...pageProps} editable={isCoach} />,
+    settings: <SettingsPage {...pageProps} />,
   }
   return pages[props.activePage] || pages.dashboard
 }
@@ -442,10 +444,11 @@ function JoinTeam({ onDone }) {
   )
 }
 
-function DashboardPage({ data, onPage, onRefresh, profile, setMessage, team }) {
+function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage, team }) {
   const isParent = profile.role === 'parent'
-  const claimedPlayers = getClaimedPlayers(data.roster, profile)
-  const unclaimedPlayers = data.roster.filter((player) => !player.parent_profile_id)
+  const claimRoster = fullData?.roster || data.roster
+  const claimedPlayers = getClaimedPlayers(claimRoster, profile)
+  const unclaimedPlayers = claimRoster.filter((player) => !player.parent_profile_id)
   const totals = getTotals(data.dues)
   const upcoming = data.events.filter((event) => new Date(event.starts_at) >= new Date()).slice(0, 3)
   const nextEvent = upcoming[0]
@@ -468,9 +471,9 @@ function DashboardPage({ data, onPage, onRefresh, profile, setMessage, team }) {
         </section>
       )}
       <section className="stats">
-        <Stat icon="♙" label="Roster" value={`${data.roster.length} players`} onClick={() => onPage('roster')} />
+        <Stat icon="♙" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
         <Stat icon="▣" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-        <Stat icon="$" label="Outstanding Dues" value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
+        <Stat icon="$" label={isParent ? 'My Dues' : 'Outstanding Dues'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
         <Stat icon="⌁" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
       </section>
       {nextEvent && (
@@ -504,7 +507,7 @@ function DashboardPage({ data, onPage, onRefresh, profile, setMessage, team }) {
   )
 }
 
-function RosterPage({ data, editable, onRefresh, profile, setMessage, team }) {
+function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, team }) {
   const [query, setQuery] = useState('')
   const [form, setForm] = useState(emptyForms.roster)
   const [editingId, setEditingId] = useState(null)
@@ -512,7 +515,8 @@ function RosterPage({ data, editable, onRefresh, profile, setMessage, team }) {
   const [copyStatus, setCopyStatus] = useState('')
   const [showForm, setShowForm] = useState(false)
   const isParent = profile.role === 'parent'
-  const claimedPlayers = getClaimedPlayers(data.roster, profile)
+  const claimRoster = fullData?.roster || data.roster
+  const claimedPlayers = getClaimedPlayers(claimRoster, profile)
   const roster = data.roster.filter((player) => `${player.player_name} ${player.jersey_number}`.toLowerCase().includes(query.toLowerCase()))
 
   async function submit(event) {
@@ -574,7 +578,7 @@ function RosterPage({ data, editable, onRefresh, profile, setMessage, team }) {
   return (
     <div className="page-stack">
       <PageHeader title="Roster" subtitle={`${data.roster.length} players on the team`} action={editable && '+ Add Player'} onAction={() => setShowForm(!showForm)} />
-      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={data.roster.filter((player) => !player.parent_profile_id)} profile={profile} setMessage={setMessage} />}
+      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimRoster.filter((player) => !player.parent_profile_id)} profile={profile} setMessage={setMessage} />}
       {copyStatus && <div className="notice">{copyStatus}</div>}
       <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕ Search by name or jersey number..." />
       {editable && showForm && (
@@ -819,7 +823,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
       <Segmented value={filter} onChange={setFilter} options={[['all', 'All'], ['monthly', 'Monthly'], ['tournament', 'Tournament'], ['unpaid', 'Unpaid'], ['paid', 'Paid'], ['waived', 'Waived']]} />
       <section className="panel rows">
         {dues.map((due) => <DueRow due={due} editable={editable} key={due.id} onPaid={markPaid} onWaive={waiveDue} />)}
-        {!dues.length && <EmptyState title="No dues in this view" body="Assign monthly dues or tournament fees to the whole team or individual players." />}
+        {!dues.length && <EmptyState title="No dues in this view" body={editable ? 'Assign monthly dues or tournament fees to the whole team or individual players.' : 'Once you claim your player, only dues assigned to that player will appear here.'} />}
       </section>
     </div>
   )
@@ -905,7 +909,7 @@ function MessagesPage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action="+ New Message" onAction={() => setShowForm(!showForm)} />
+      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && '+ New Message'} onAction={() => setShowForm(!showForm)} />
       <Segmented value={mode} onChange={setMode} options={[['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && editable && (
         <form className="panel form" onSubmit={submitBroadcast}>
@@ -1080,8 +1084,8 @@ function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMess
   return (
     <section className="claim-panel">
       <div>
-        <h2>My Players</h2>
-        <p>{claimedPlayers.length ? claimedPlayers.map((player) => player.player_name).join(', ') : 'Claim your player so TeamSync can show the right family details.'}</p>
+        <h2>{claimedPlayers.length ? 'My Players' : 'Claim Your Player'}</h2>
+        <p>{claimedPlayers.length ? claimedPlayers.map((player) => player.player_name).join(', ') : 'Pick your kid from the roster. After that, dues and player-specific messages will be limited to your family.'}</p>
       </div>
       <div>
         <select value="" onChange={(event) => claimPlayer(event.target.value)} aria-label="Claim player">
@@ -1272,6 +1276,29 @@ function EmptyState({ action, body, onAction, title }) {
 
 function Badge({ label }) {
   return <span className={`badge ${String(label).toLowerCase()}`}>{label}</span>
+}
+
+function getParentScopedData(data, profile) {
+  const claimedPlayers = getClaimedPlayers(data.roster, profile)
+  const claimedPlayerIds = new Set(claimedPlayers.map((player) => player.id))
+  const conversations = data.conversations.filter((conversation) => isConversationForProfile(conversation, profile, claimedPlayerIds))
+  const conversationIds = new Set(conversations.map((conversation) => conversation.id))
+
+  return {
+    ...data,
+    roster: claimedPlayers,
+    dues: data.dues.filter((due) => claimedPlayerIds.has(due.roster_member_id)),
+    conversations,
+    conversationMessages: data.conversationMessages.filter((message) => conversationIds.has(message.conversation_id)),
+  }
+}
+
+function isConversationForProfile(conversation, profile, claimedPlayerIds) {
+  if (conversation.created_by === profile.id) return true
+  if (conversation.recipient_type === 'all_team' || conversation.recipient_type === 'all_parents') return true
+  if (conversation.recipient_profile_id === profile.id) return true
+  if (conversation.roster_member_id && claimedPlayerIds.has(conversation.roster_member_id)) return true
+  return false
 }
 
 function getClaimedPlayers(roster, profile) {
