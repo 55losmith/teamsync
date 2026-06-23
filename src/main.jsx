@@ -338,7 +338,7 @@ function AuthScreen() {
         <div className="auth-copy">
           <p className="eyebrow">Travel baseball operations</p>
           <h1>Run the season without the group-chat chaos.</h1>
-          <p className="muted">Coach and parent portals for roster, schedule, dues, broadcasts, and 9U pitch-count rest tracking.</p>
+          <p className="muted">Coach and parent portals for all things travel baseball.</p>
         </div>
         <form className="panel form" onSubmit={submit}>
           <div className="tabs" role="tablist" aria-label="Auth mode">
