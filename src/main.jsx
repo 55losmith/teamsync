@@ -319,7 +319,7 @@ function AuthScreen() {
         password,
         options: {
           data: { full_name: fullName, role },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.href,
         },
       })
       : await supabase.auth.signInWithPassword({ email, password })
@@ -404,7 +404,9 @@ function CreateTeam({ onDone }) {
 }
 
 function JoinTeam({ onDone }) {
-  const inviteCode = new URLSearchParams(window.location.search).get('teamCode') || ''
+  const params = new URLSearchParams(window.location.search)
+  const inviteCode = params.get('teamCode') || ''
+  const invitePlayerId = params.get('playerId') || ''
   const [code, setCode] = useState(inviteCode)
   const [message, setMessage] = useState('')
 
@@ -412,8 +414,20 @@ function JoinTeam({ onDone }) {
     event.preventDefault()
     setMessage('')
     const { error } = await supabase.rpc('join_team_by_code', { p_join_code: code.trim().toUpperCase() })
-    if (error) setMessage(error.message || 'Team code not found.')
-    else onDone()
+    if (error) {
+      setMessage(error.message || 'Team code not found.')
+      return
+    }
+
+    if (invitePlayerId) {
+      const { error: claimError } = await supabase.rpc('claim_roster_member', { p_roster_member_id: invitePlayerId })
+      if (claimError) {
+        setMessage(`Joined the team, but could not claim the player yet. ${claimError.message}`)
+        return
+      }
+    }
+
+    onDone()
   }
 
   return (
@@ -428,7 +442,10 @@ function JoinTeam({ onDone }) {
   )
 }
 
-function DashboardPage({ data, onPage, team }) {
+function DashboardPage({ data, onPage, onRefresh, profile, setMessage, team }) {
+  const isParent = profile.role === 'parent'
+  const claimedPlayers = getClaimedPlayers(data.roster, profile)
+  const unclaimedPlayers = data.roster.filter((player) => !player.parent_profile_id)
   const totals = getTotals(data.dues)
   const upcoming = data.events.filter((event) => new Date(event.starts_at) >= new Date()).slice(0, 3)
   const nextEvent = upcoming[0]
@@ -437,7 +454,8 @@ function DashboardPage({ data, onPage, team }) {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Coach Dashboard" subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
+      <PageHeader title={isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
+      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={unclaimedPlayers} profile={profile} setMessage={setMessage} />}
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -486,12 +504,15 @@ function DashboardPage({ data, onPage, team }) {
   )
 }
 
-function RosterPage({ data, editable, onRefresh, setMessage, team }) {
+function RosterPage({ data, editable, onRefresh, profile, setMessage, team }) {
   const [query, setQuery] = useState('')
   const [form, setForm] = useState(emptyForms.roster)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(emptyForms.roster)
+  const [copyStatus, setCopyStatus] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const isParent = profile.role === 'parent'
+  const claimedPlayers = getClaimedPlayers(data.roster, profile)
   const roster = data.roster.filter((player) => `${player.player_name} ${player.jersey_number}`.toLowerCase().includes(query.toLowerCase()))
 
   async function submit(event) {
@@ -538,9 +559,23 @@ function RosterPage({ data, editable, onRefresh, setMessage, team }) {
     onRefresh()
   }
 
+  async function inviteParent(player) {
+    const inviteLink = `${window.location.origin}/?role=parent&teamCode=${team.join_code}&playerId=${player.id}`
+    const inviteText = `Join ${team.name} on TeamSync and claim ${player.player_name}: ${inviteLink}\nTeam code: ${team.join_code}`
+
+    try {
+      await navigator.clipboard.writeText(inviteText)
+      setCopyStatus(`Invite copied for ${player.player_name}`)
+    } catch {
+      setCopyStatus(`Copy blocked. Share this link with ${player.parent_name || 'the parent'}: ${inviteLink}`)
+    }
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Roster" subtitle={`${data.roster.length} players on the team`} action={editable && '+ Add Player'} onAction={() => setShowForm(!showForm)} />
+      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={data.roster.filter((player) => !player.parent_profile_id)} profile={profile} setMessage={setMessage} />}
+      {copyStatus && <div className="notice">{copyStatus}</div>}
       <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕ Search by name or jersey number..." />
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -575,8 +610,10 @@ function RosterPage({ data, editable, onRefresh, setMessage, team }) {
             onCancelEdit={cancelEdit}
             onEdit={() => startEdit(player)}
             onEditForm={setEditForm}
+            onInviteParent={() => inviteParent(player)}
             onSaveEdit={saveEdit}
             player={player}
+            profile={profile}
           />
         ))}
         {!roster.length && <p className="muted">No players match that search.</p>}
@@ -1022,8 +1059,46 @@ function Segmented({ onChange, options, value }) {
   )
 }
 
-function PlayerRow({ editable, editForm, isEditing, onCancelEdit, onEdit, onEditForm, onSaveEdit, player }) {
+function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMessage }) {
+  const [claimingId, setClaimingId] = useState('')
+
+  async function claimPlayer(playerId) {
+    if (!playerId) return
+    setMessage('')
+    setClaimingId(playerId)
+    const { error } = await supabase.rpc('claim_roster_member', { p_roster_member_id: playerId })
+    setClaimingId('')
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    onRefresh()
+  }
+
+  return (
+    <section className="claim-panel">
+      <div>
+        <h2>My Players</h2>
+        <p>{claimedPlayers.length ? claimedPlayers.map((player) => player.player_name).join(', ') : 'Claim your player so TeamSync can show the right family details.'}</p>
+      </div>
+      <div>
+        <select value="" onChange={(event) => claimPlayer(event.target.value)} aria-label="Claim player">
+          <option value="">Claim a player</option>
+          {players.map((player) => <option key={player.id} value={player.id}>#{player.jersey_number || '-'} {player.player_name}</option>)}
+        </select>
+        {!players.length && <small>All rostered players already have a parent attached. Ask a coach if yours is missing.</small>}
+        {claimingId && <small>Claiming player...</small>}
+        <small>Signed in as {profile.email}</small>
+      </div>
+    </section>
+  )
+}
+
+function PlayerRow({ editable, editForm, isEditing, onCancelEdit, onEdit, onEditForm, onInviteParent, onSaveEdit, player, profile }) {
   const positions = splitTags(player.position)
+  const isClaimedByCurrentParent = profile?.role === 'parent' && (player.parent_profile_id === profile.id || player.parent_email?.toLowerCase() === profile.email?.toLowerCase())
 
   if (isEditing) {
     return (
@@ -1062,7 +1137,8 @@ function PlayerRow({ editable, editForm, isEditing, onCancelEdit, onEdit, onEdit
         <p>B/T: {player.bats || '-'} / {player.throws || '-'}</p>
         <p>{player.parent_name || 'Parent'} · {player.parent_email || 'No email'} {player.parent_phone ? `· ${player.parent_phone}` : ''}</p>
       </div>
-      {editable && <div className="row-actions"><button type="button">Invite Parent</button><button type="button" onClick={onEdit}>Edit</button></div>}
+      {isClaimedByCurrentParent && <Badge label="My player" />}
+      {editable && <div className="row-actions"><button type="button" onClick={onInviteParent}>Invite Parent</button><button type="button" onClick={onEdit}>Edit</button></div>}
     </article>
   )
 }
@@ -1196,6 +1272,14 @@ function EmptyState({ action, body, onAction, title }) {
 
 function Badge({ label }) {
   return <span className={`badge ${String(label).toLowerCase()}`}>{label}</span>
+}
+
+function getClaimedPlayers(roster, profile) {
+  if (!profile?.email) return []
+  return roster.filter((player) => (
+    player.parent_profile_id === profile.id ||
+    player.parent_email?.toLowerCase() === profile.email.toLowerCase()
+  ))
 }
 
 function getRecipientOptions(data) {

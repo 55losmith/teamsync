@@ -40,6 +40,7 @@ create table if not exists public.roster_members (
   parent_name text,
   parent_email text,
   parent_phone text,
+  parent_profile_id uuid references public.profiles(id) on delete set null,
   notes text,
   created_at timestamptz not null default now()
 );
@@ -47,6 +48,7 @@ create table if not exists public.roster_members (
 alter table public.roster_members add column if not exists bats text;
 alter table public.roster_members add column if not exists throws text;
 alter table public.roster_members add column if not exists parent_phone text;
+alter table public.roster_members add column if not exists parent_profile_id uuid references public.profiles(id) on delete set null;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
@@ -230,6 +232,46 @@ begin
   where id = auth.uid();
 
   return v_team_id;
+end;
+$$;
+
+create or replace function public.claim_roster_member(p_roster_member_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles%rowtype;
+  v_player_id uuid;
+begin
+  select * into v_profile
+  from public.profiles
+  where id = auth.uid();
+
+  if v_profile.id is null or v_profile.team_id is null then
+    raise exception 'Join a team before claiming a player';
+  end if;
+
+  if v_profile.role <> 'parent' then
+    raise exception 'Only parent accounts can claim players';
+  end if;
+
+  update public.roster_members
+  set
+    parent_profile_id = v_profile.id,
+    parent_name = coalesce(nullif(parent_name, ''), v_profile.full_name),
+    parent_email = coalesce(nullif(parent_email, ''), v_profile.email)
+  where id = p_roster_member_id
+    and team_id = v_profile.team_id
+    and (parent_profile_id is null or parent_profile_id = v_profile.id)
+  returning id into v_player_id;
+
+  if v_player_id is null then
+    raise exception 'That player is already claimed or is not on your team';
+  end if;
+
+  return v_player_id;
 end;
 $$;
 

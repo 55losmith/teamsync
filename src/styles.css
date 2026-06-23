@@ -519,6 +519,33 @@ p {
   padding: 0 18px;
 }
 
+.claim-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 18px;
+  align-items: start;
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.claim-panel h2 {
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+}
+
+.claim-panel p,
+.claim-panel small {
+  color: #526580;
+  line-height: 1.45;
+}
+
+.claim-panel div:last-child {
+  display: grid;
+  gap: 8px;
+}
+
 .empty-hero,
 .empty-state {
   border: 1px dashed #cbd5e1;
@@ -910,7 +937,8 @@ p {
   .auth-grid,
   .two-col,
   .grid-form,
-  .form-row {
+  .form-row,
+  .claim-panel {
     grid-template-columns: 1fr;
   }
 
