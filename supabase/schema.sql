@@ -1,0 +1,387 @@
+create extension if not exists pgcrypto;
+
+create table if not exists public.teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  season text,
+  age_group text default '9U Travel',
+  location text default 'Texas',
+  head_coach text,
+  monthly_dues numeric(10, 2) not null default 0,
+  daily_pitch_limit integer not null default 75,
+  join_code text unique not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.teams add column if not exists age_group text default '9U Travel';
+alter table public.teams add column if not exists location text default 'Texas';
+alter table public.teams add column if not exists head_coach text;
+alter table public.teams add column if not exists monthly_dues numeric(10, 2) not null default 0;
+alter table public.teams add column if not exists daily_pitch_limit integer not null default 75;
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default '',
+  role text not null check (role in ('coach', 'parent')),
+  team_id uuid references public.teams(id) on delete set null,
+  email text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.roster_members (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  player_name text not null,
+  jersey_number text,
+  position text,
+  bats text,
+  throws text,
+  parent_name text,
+  parent_email text,
+  parent_phone text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.roster_members add column if not exists bats text;
+alter table public.roster_members add column if not exists throws text;
+alter table public.roster_members add column if not exists parent_phone text;
+
+create table if not exists public.events (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  title text not null,
+  event_type text not null default 'practice' check (event_type in ('practice', 'game', 'meeting', 'other')),
+  starts_at timestamptz not null,
+  location text,
+  opponent text,
+  home_away text default 'home' check (home_away in ('home', 'away', 'neutral')),
+  our_score integer,
+  opponent_score integer,
+  result text default '' check (result in ('', 'win', 'loss', 'tie')),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.events add column if not exists opponent text;
+alter table public.events add column if not exists home_away text default 'home';
+alter table public.events add column if not exists our_score integer;
+alter table public.events add column if not exists opponent_score integer;
+alter table public.events add column if not exists result text default '';
+
+create table if not exists public.dues (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  roster_member_id uuid references public.roster_members(id) on delete set null,
+  title text not null,
+  due_type text not null default 'monthly' check (due_type in ('monthly', 'tournament', 'other')),
+  amount numeric(10, 2) not null default 0,
+  due_date date,
+  status text not null default 'unpaid',
+  paid_amount numeric(10, 2) not null default 0,
+  waived_amount numeric(10, 2) not null default 0,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.dues add column if not exists due_type text not null default 'monthly';
+alter table public.dues add column if not exists waived_amount numeric(10, 2) not null default 0;
+alter table public.dues drop constraint if exists dues_status_check;
+alter table public.dues add constraint dues_status_check check (status in ('unpaid', 'partial', 'paid', 'waived'));
+alter table public.dues drop constraint if exists dues_due_type_check;
+alter table public.dues add constraint dues_due_type_check check (due_type in ('monthly', 'tournament', 'other'));
+
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  title text not null,
+  body text not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.pitch_counts (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  roster_member_id uuid references public.roster_members(id) on delete set null,
+  pitches integer not null default 0,
+  pitched_on date not null default current_date,
+  opponent text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  subject text not null,
+  recipient_type text not null default 'all_parents',
+  recipient_name text,
+  recipient_email text,
+  recipient_profile_id uuid references public.profiles(id) on delete set null,
+  roster_member_id uuid references public.roster_members(id) on delete set null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.conversations add column if not exists recipient_type text not null default 'all_parents';
+alter table public.conversations add column if not exists recipient_profile_id uuid references public.profiles(id) on delete set null;
+alter table public.conversations add column if not exists roster_member_id uuid references public.roster_members(id) on delete set null;
+
+create table if not exists public.conversation_messages (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid references auth.users(id) on delete set null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  recipient_id uuid not null references public.profiles(id) on delete cascade,
+  conversation_id uuid references public.conversations(id) on delete cascade,
+  title text not null,
+  body text not null,
+  notification_type text not null default 'message',
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, role, email)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    coalesce(new.raw_user_meta_data->>'role', 'parent'),
+    new.email
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
+alter table public.teams enable row level security;
+alter table public.profiles enable row level security;
+alter table public.roster_members enable row level security;
+alter table public.events enable row level security;
+alter table public.dues enable row level security;
+alter table public.announcements enable row level security;
+alter table public.pitch_counts enable row level security;
+alter table public.conversations enable row level security;
+alter table public.conversation_messages enable row level security;
+alter table public.notifications enable row level security;
+
+create or replace function public.current_team_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select team_id from public.profiles where id = auth.uid()
+$$;
+
+create or replace function public.current_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid()
+$$;
+
+create or replace function public.join_team_by_code(p_join_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_team_id uuid;
+begin
+  select id into v_team_id
+  from public.teams
+  where join_code = upper(trim(p_join_code));
+
+  if v_team_id is null then
+    raise exception 'Team code not found';
+  end if;
+
+  update public.profiles
+  set team_id = v_team_id
+  where id = auth.uid();
+
+  return v_team_id;
+end;
+$$;
+
+drop policy if exists "Users can read their own profile" on public.profiles;
+create policy "Users can read their own profile"
+on public.profiles for select
+to authenticated
+using (id = auth.uid() or team_id = public.current_team_id());
+
+drop policy if exists "Users can create their own profile" on public.profiles;
+create policy "Users can create their own profile"
+on public.profiles for insert
+to authenticated
+with check (id = auth.uid());
+
+drop policy if exists "Users can update their own profile" on public.profiles;
+create policy "Users can update their own profile"
+on public.profiles for update
+to authenticated
+using (id = auth.uid())
+with check (id = auth.uid());
+
+drop policy if exists "Authenticated users can create teams" on public.teams;
+create policy "Authenticated users can create teams"
+on public.teams for insert
+to authenticated
+with check (created_by = auth.uid());
+
+drop policy if exists "Team members can read their team" on public.teams;
+create policy "Team members can read their team"
+on public.teams for select
+to authenticated
+using (id = public.current_team_id() or created_by = auth.uid());
+
+drop policy if exists "Coaches can update their team" on public.teams;
+create policy "Coaches can update their team"
+on public.teams for update
+to authenticated
+using (created_by = auth.uid() or (id = public.current_team_id() and public.current_role() = 'coach'))
+with check (created_by = auth.uid() or (id = public.current_team_id() and public.current_role() = 'coach'));
+
+drop policy if exists "Team members can read roster" on public.roster_members;
+create policy "Team members can read roster"
+on public.roster_members for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Coaches can manage roster" on public.roster_members;
+create policy "Coaches can manage roster"
+on public.roster_members for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read events" on public.events;
+create policy "Team members can read events"
+on public.events for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Coaches can manage events" on public.events;
+create policy "Coaches can manage events"
+on public.events for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read dues" on public.dues;
+create policy "Team members can read dues"
+on public.dues for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Coaches can manage dues" on public.dues;
+create policy "Coaches can manage dues"
+on public.dues for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read announcements" on public.announcements;
+create policy "Team members can read announcements"
+on public.announcements for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Coaches can manage announcements" on public.announcements;
+create policy "Coaches can manage announcements"
+on public.announcements for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read pitch counts" on public.pitch_counts;
+create policy "Team members can read pitch counts"
+on public.pitch_counts for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Coaches can manage pitch counts" on public.pitch_counts;
+create policy "Coaches can manage pitch counts"
+on public.pitch_counts for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Team members can read conversations" on public.conversations;
+create policy "Team members can read conversations"
+on public.conversations for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Team members can create conversations" on public.conversations;
+create policy "Team members can create conversations"
+on public.conversations for insert
+to authenticated
+with check (team_id = public.current_team_id());
+
+drop policy if exists "Team members can update conversations" on public.conversations;
+create policy "Team members can update conversations"
+on public.conversations for update
+to authenticated
+using (team_id = public.current_team_id())
+with check (team_id = public.current_team_id());
+
+drop policy if exists "Team members can read conversation messages" on public.conversation_messages;
+create policy "Team members can read conversation messages"
+on public.conversation_messages for select
+to authenticated
+using (team_id = public.current_team_id());
+
+drop policy if exists "Team members can create conversation messages" on public.conversation_messages;
+create policy "Team members can create conversation messages"
+on public.conversation_messages for insert
+to authenticated
+with check (team_id = public.current_team_id());
+
+drop policy if exists "Users can read their notifications" on public.notifications;
+create policy "Users can read their notifications"
+on public.notifications for select
+to authenticated
+using (recipient_id = auth.uid() and team_id = public.current_team_id());
+
+drop policy if exists "Team members can create notifications" on public.notifications;
+create policy "Team members can create notifications"
+on public.notifications for insert
+to authenticated
+with check (team_id = public.current_team_id());
+
+drop policy if exists "Users can update their notifications" on public.notifications;
+create policy "Users can update their notifications"
+on public.notifications for update
+to authenticated
+using (recipient_id = auth.uid() and team_id = public.current_team_id())
+with check (recipient_id = auth.uid() and team_id = public.current_team_id());
