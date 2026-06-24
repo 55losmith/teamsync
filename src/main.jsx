@@ -16,6 +16,7 @@ const navItems = [
   ['pitch', '⌁', 'Pitch Counts'],
   ['dues', '$', 'Dues'],
   ['messages', '□', 'Messages'],
+  ['account', '◌', 'Account'],
   ['settings', '⚙', 'Team Settings'],
 ]
 
@@ -235,7 +236,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const visibleNav = isCoach
     ? navItems
     : profile.role === 'follower'
-      ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages'].includes(key))
+      ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages', 'account'].includes(key))
       : navItems.filter(([key]) => key !== 'settings')
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
 
@@ -293,6 +294,7 @@ function MainPage(props) {
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
     dues: <DuesPage {...pageProps} editable={isCoach} />,
     messages: <MessagesPage {...pageProps} editable={isCoach || props.profile.role === 'parent'} />,
+    account: <AccountPage {...pageProps} />,
     settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
   return pages[props.activePage] || pages.dashboard
@@ -1093,6 +1095,77 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   )
 }
 
+function AccountPage({ onRefresh, profile, setMessage }) {
+  const [fullName, setFullName] = useState(profile.full_name || '')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  async function saveProfile(event) {
+    event.preventDefault()
+    setMessage('')
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName.trim() })
+      .eq('id', profile.id)
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setMessage('Account profile updated.')
+    onRefresh()
+  }
+
+  async function changePassword(event) {
+    event.preventDefault()
+    setMessage('')
+
+    if (newPassword.length < 6) {
+      setMessage('Password must be at least 6 characters.')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setMessage('Passwords do not match.')
+      return
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setNewPassword('')
+    setConfirmPassword('')
+    setMessage('Password updated.')
+  }
+
+  return (
+    <div className="page-stack">
+      <PageHeader title="Account" subtitle="Your TeamSync login and profile" />
+      <section className="two-panels">
+        <form className="panel form" onSubmit={saveProfile}>
+          <h2>Profile</h2>
+          <label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} required /></label>
+          <label>Email<input value={profile.email || ''} disabled readOnly /></label>
+          <label>Role<input value={profile.role || ''} disabled readOnly /></label>
+          <button className="primary fit" type="submit">Save Profile</button>
+        </form>
+        <form className="panel form" onSubmit={changePassword}>
+          <h2>Change Password</h2>
+          <label>New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength="6" required /></label>
+          <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength="6" required /></label>
+          <button className="primary fit" type="submit">Update Password</button>
+          <p className="form-help">This changes the password for the account you are signed into right now.</p>
+        </form>
+      </section>
+    </div>
+  )
+}
+
 function SettingsPage({ data, onRefresh, setMessage, team }) {
   const [form, setForm] = useState({
     name: team?.name || '',
@@ -1158,12 +1231,12 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
           {copyStatus && <p className="form-help">{copyStatus}</p>}
         </div>
       </section>
-      <TeamMembersPanel data={data} />
+      <TeamMembersPanel data={data} setMessage={setMessage} />
     </div>
   )
 }
 
-function TeamMembersPanel({ data }) {
+function TeamMembersPanel({ data, setMessage }) {
   const coaches = data.members.filter((member) => member.role === 'coach')
   const parents = data.members.filter((member) => member.role === 'parent')
   const followers = data.members.filter((member) => member.role === 'follower')
@@ -1174,27 +1247,27 @@ function TeamMembersPanel({ data }) {
         <h3>Team Members <span>{data.members.length}</span></h3>
       </div>
       <div className="member-columns">
-        <MemberGroup members={coaches} title="Coaches" />
-        <MemberGroup members={parents} parentClaims={data.parentClaims} roster={data.roster} title="Parents" />
-        <MemberGroup members={followers} title="Followers" />
+        <MemberGroup members={coaches} setMessage={setMessage} title="Coaches" />
+        <MemberGroup members={parents} parentClaims={data.parentClaims} roster={data.roster} setMessage={setMessage} title="Parents" />
+        <MemberGroup members={followers} setMessage={setMessage} title="Followers" />
       </div>
     </section>
   )
 }
 
-function MemberGroup({ members, parentClaims = [], roster = [], title }) {
+function MemberGroup({ members, parentClaims = [], roster = [], setMessage, title }) {
   return (
     <div className="panel member-list">
       <h3>{title} <span>{members.length}</span></h3>
       {members.map((member) => (
-        <MemberRow key={member.id} member={member} parentClaims={parentClaims} roster={roster} />
+        <MemberRow key={member.id} member={member} parentClaims={parentClaims} roster={roster} setMessage={setMessage} />
       ))}
       {!members.length && <EmptyState title={`No ${title.toLowerCase()} yet`} body="Signed-up team members will appear here." />}
     </div>
   )
 }
 
-function MemberRow({ member, parentClaims, roster }) {
+function MemberRow({ member, parentClaims, roster, setMessage }) {
   const claimedPlayerIds = new Set(parentClaims.filter((claim) => claim.parent_profile_id === member.id).map((claim) => claim.roster_member_id))
   const claimedPlayers = roster.filter((player) => (
     claimedPlayerIds.has(player.id) ||
@@ -1204,7 +1277,8 @@ function MemberRow({ member, parentClaims, roster }) {
 
   async function sendReset() {
     if (!member.email) return
-    await supabase.auth.resetPasswordForEmail(member.email, { redirectTo: window.location.origin })
+    const { error } = await supabase.auth.resetPasswordForEmail(member.email, { redirectTo: window.location.origin })
+    setMessage(error ? error.message : `Password reset sent to ${member.email}.`)
   }
 
   return (
