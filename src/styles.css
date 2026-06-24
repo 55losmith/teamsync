@@ -328,6 +328,22 @@ p {
   transform: translateY(-1px);
 }
 
+.ghost {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-strong);
+  padding: 0 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .panel,
 .event-card,
 .message-card,
@@ -1254,6 +1270,222 @@ p {
   gap: 14px;
 }
 
+.finances-page {
+  max-width: 980px;
+}
+
+.finance-form {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.finance-month-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  padding: 10px 0 2px;
+}
+
+.finance-month-bar button {
+  width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-strong);
+}
+
+.finance-month-bar strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 1.05rem;
+}
+
+.finance-month-bar p {
+  margin-top: 4px;
+  font-size: 0.9rem;
+}
+
+.finance-table-card {
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--border-strong);
+}
+
+.finance-table-wrap {
+  overflow-x: auto;
+}
+
+.finance-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.finance-table th {
+  border-bottom: 1px solid var(--border-strong);
+  background: #fbfcfd;
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 16px;
+  text-align: left;
+}
+
+.finance-table th span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.finance-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 13px 16px;
+  vertical-align: middle;
+}
+
+.finance-table tbody tr:hover {
+  background: #fbfcfd;
+}
+
+.finance-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.finance-table td:first-child strong,
+.finance-table td:first-child span {
+  display: inline-block;
+}
+
+.finance-table td:first-child span {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.finance-check {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.finance-check.paid {
+  border-color: #22c55e;
+  background: #22c55e;
+}
+
+.finance-check.waived {
+  border-color: #f59e0b;
+  background: #f59e0b;
+}
+
+.finance-check.unpaid,
+.finance-check.empty {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.finance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.finance-actions button,
+.tournament-player-actions button {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-strong);
+  padding: 0 10px;
+}
+
+.finance-actions button:first-child,
+.tournament-player-actions button:first-of-type {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: var(--success);
+}
+
+.finance-actions button:nth-child(2),
+.tournament-player-actions button:nth-of-type(2) {
+  border-color: rgba(245, 158, 11, 0.48);
+  color: #a16207;
+}
+
+.finance-tournament-list {
+  display: grid;
+  gap: 14px;
+}
+
+.tournament-fee-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+}
+
+.tournament-fee-head,
+.tournament-fee-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.tournament-fee-head {
+  justify-content: flex-start;
+}
+
+.tournament-fee-head h3 {
+  font-size: 1rem;
+}
+
+.tournament-fee-head p,
+.tournament-fee-total span {
+  color: var(--muted);
+}
+
+.tournament-fee-total strong {
+  color: var(--success);
+}
+
+.finance-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tournament-player-actions {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.tournament-player-actions > div {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 44px auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tournament-player-actions > div:last-child {
+  border-bottom: 0;
+}
+
 .dues-breakdown {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2159,6 +2391,31 @@ p {
 
   .due-actions button {
     flex: 1 1 84px;
+  }
+
+  .finance-month-bar {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    text-align: center;
+  }
+
+  .finance-month-bar button {
+    width: 38px;
+  }
+
+  .tournament-fee-head,
+  .tournament-fee-total {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tournament-player-actions > div {
+    grid-template-columns: 1fr 38px;
+  }
+
+  .tournament-player-actions button {
+    min-height: 34px;
   }
 
   .player-edit-row {

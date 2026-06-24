@@ -14,7 +14,7 @@ const navItems = [
   ['roster', '♙', 'Roster'],
   ['schedule', '▣', 'Schedule'],
   ['pitch', '⌁', 'Pitch Counts'],
-  ['dues', '$', 'Dues'],
+  ['dues', '$', 'Finances'],
   ['messages', '□', 'Messages'],
   ['account', '◌', 'Account'],
   ['settings', '⚙', 'Team Settings'],
@@ -850,18 +850,28 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
 }
 
 function DuesPage({ data, editable, onRefresh, setMessage, team }) {
-  const [filter, setFilter] = useState('all')
+  const [financeTab, setFinanceTab] = useState('monthly')
+  const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForms.due)
   const [monthDate, setMonthDate] = useState(new Date(today))
-  const totals = getTotals(data.dues)
   const monthKey = getMonthKey(monthDate)
   const monthDues = data.dues.filter((due) => getMonthKey(due.due_date || due.created_at) === monthKey)
   const monthTotals = getTotals(monthDues)
   const monthlyTotals = getTotals(monthDues.filter((due) => due.due_type === 'monthly'))
   const tournamentTotals = getTotals(monthDues.filter((due) => due.due_type === 'tournament'))
-  const dues = monthDues.filter((due) => filter === 'all' || due.status === filter || due.due_type === filter)
   const percent = monthTotals.amount ? Math.round((monthTotals.paid / monthTotals.amount) * 100) : 0
-  const unpaidCount = monthDues.filter((due) => due.status === 'unpaid' || due.status === 'partial').length
+  const monthlyByPlayer = new Map(monthDues.filter((due) => due.due_type === 'monthly').map((due) => [due.roster_member_id, due]))
+  const tournamentGroups = groupTournamentDues(data.dues)
+
+  function openDuesForm(type = financeTab) {
+    setFinanceTab(type)
+    setForm({
+      ...emptyForms.due,
+      due_type: type,
+      title: type === 'monthly' ? 'Monthly Dues' : 'Tournament Fee',
+    })
+    setShowForm(true)
+  }
 
   async function submit(event) {
     event.preventDefault()
@@ -889,6 +899,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
       return
     }
     setForm(emptyForms.due)
+    setShowForm(false)
     onRefresh()
   }
 
@@ -922,16 +933,9 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   }
 
   return (
-    <div className="page-stack">
-      <PageHeader title="Dues & Payments" subtitle={`Season: ${money(totals.paid)} collected · ${money(totals.balance)} outstanding · ${money(totals.waived)} waived`} />
-      <section className="month-switcher panel">
-        <button type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))}>‹</button>
-        <div>
-          <strong>{formatMonth(monthDate)}</strong>
-          <p>{monthDues.length} dues records · {unpaidCount} need attention</p>
-        </div>
-        <button type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))}>›</button>
-      </section>
+    <div className="page-stack finances-page">
+      <PageHeader title="Team Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Monthly Dues' : '+ New Tournament Fee')} onAction={() => openDuesForm(financeTab)} />
+      <Segmented value={financeTab} onChange={setFinanceTab} options={[['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]} />
       <section className="dues-summary">
         <MetricCard label="Collected" value={money(monthTotals.paid)} tone="green" />
         <MetricCard label="Outstanding" value={money(monthTotals.balance)} tone="red" />
@@ -947,8 +951,9 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           <div><span>Team Deficit</span><strong>{money(monthTotals.balance)}</strong></div>
         </div>
       </section>
-      {editable && (
-        <form className="panel form grid-form" onSubmit={submit}>
+      {editable && showForm && (
+        <form className="panel form grid-form finance-form" onSubmit={submit}>
+          <div className="form-section-title">{form.due_type === 'monthly' ? 'Assign Monthly Dues' : 'Assign Tournament Fee'}</div>
           <input placeholder="Dues title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <select value={form.due_type} onChange={(e) => setForm({ ...form, due_type: e.target.value, title: e.target.value === 'monthly' ? 'Monthly Dues' : 'Tournament Fee' })}>
             <option value="monthly">Monthly dues</option>
@@ -967,16 +972,113 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             <option value="paid">Paid</option>
             <option value="waived">Waived</option>
           </select>
-          <button className="primary" type="submit">Assign Dues</button>
+          <div className="form-actions">
+            <button className="primary" type="submit">Assign Dues</button>
+            <button className="ghost" type="button" onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
           {!form.roster_member_id && <p className="form-help">Whole team creates one due record for each roster player so every family can see their own balance.</p>}
         </form>
       )}
-      <Segmented value={filter} onChange={setFilter} options={[['all', 'All'], ['monthly', 'Monthly'], ['tournament', 'Tournament'], ['unpaid', 'Unpaid'], ['paid', 'Paid'], ['waived', 'Waived']]} />
-      <section className="panel rows">
-        {dues.map((due) => <DueRow due={due} editable={editable} key={due.id} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
-        {!dues.length && <EmptyState title="No dues in this month" body={editable ? 'Assign monthly dues or tournament fees to the whole team or individual players.' : 'Once you claim your player, only dues assigned to that player will appear here.'} />}
-      </section>
+      {financeTab === 'monthly' ? (
+        <>
+          <section className="finance-month-bar">
+            <button type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))}>‹</button>
+            <div>
+              <strong>{formatMonth(monthDate)}</strong>
+              <p>{monthlyTotals.amount ? `${money(monthlyTotals.amount / Math.max(1, monthDues.filter((due) => due.due_type === 'monthly').length))} per player / month` : 'No monthly dues assigned yet'}</p>
+            </div>
+            <button type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))}>›</button>
+          </section>
+          <section className="panel finance-table-card">
+            <div className="finance-table-wrap">
+              <table className="finance-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>{formatMonth(monthDate)}<span>{monthDues.filter((due) => due.due_type === 'monthly' && due.status === 'paid').length}/{data.roster.length}</span></th>
+                    <th>Balance</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.roster.map((player) => {
+                    const due = monthlyByPlayer.get(player.id)
+                    return (
+                      <tr key={player.id}>
+                        <td><strong>{player.player_name}</strong><span>#{player.jersey_number || '-'}</span></td>
+                        <td><FinanceStatusCell due={due} /></td>
+                        <td>{due ? money(Math.max(0, Number(due.amount || 0) - Number(due.paid_amount || 0) - Number(due.waived_amount || 0))) : '—'}</td>
+                        <td>
+                          {due ? (
+                            <div className="finance-actions">
+                              <button type="button" onClick={() => markPaid(due)}>Paid</button>
+                              <button type="button" onClick={() => waiveDue(due)}>Waive</button>
+                              <button type="button" onClick={() => markUnpaid(due)}>Reset</button>
+                            </div>
+                          ) : <span className="muted">Not assigned</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {!data.roster.length && <EmptyState title="No players yet" body="Add players before assigning monthly dues." />}
+          </section>
+        </>
+      ) : (
+        <section className="finance-tournament-list">
+          {tournamentGroups.map((group) => <TournamentFeeCard group={group} key={group.key} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
+          {!tournamentGroups.length && <EmptyState title="No tournament fees yet" body="Create a tournament fee for the whole team or a specific player." />}
+        </section>
+      )}
     </div>
+  )
+}
+
+function FinanceStatusCell({ due }) {
+  if (!due) return <span className="finance-check empty" aria-label="Not assigned" />
+  return <span className={`finance-check ${due.status}`} aria-label={due.status}>{due.status === 'paid' ? '✓' : due.status === 'waived' ? '–' : ''}</span>
+}
+
+function TournamentFeeCard({ group, onPaid, onUnpaid, onWaive }) {
+  const totals = getTotals(group.dues)
+  const paidCount = group.dues.filter((due) => due.status === 'paid').length
+  const waivedCount = group.dues.filter((due) => due.status === 'waived').length
+  const outstandingCount = group.dues.length - paidCount - waivedCount
+  const percent = totals.amount ? Math.round((totals.paid / totals.amount) * 100) : 0
+
+  return (
+    <article className="tournament-fee-card">
+      <div className="tournament-fee-head">
+        <span className="money">♕</span>
+        <div>
+          <h3>{group.title}</h3>
+          <p>{money(group.amount)} per player · {formatShortDate(group.dueDate)}</p>
+        </div>
+      </div>
+      <div className="tournament-fee-total">
+        <strong>{money(totals.paid)} collected</strong>
+        <span>/ {money(totals.amount)} total</span>
+      </div>
+      <div className="progress"><span style={{ width: `${percent}%` }} /></div>
+      <div className="finance-pills">
+        <Badge label={`${paidCount} paid`} />
+        <Badge label={`${outstandingCount} outstanding`} />
+        <Badge label={`${waivedCount} waived`} />
+      </div>
+      <div className="tournament-player-actions">
+        {group.dues.map((due) => (
+          <div key={due.id}>
+            <span>{due.roster_members?.player_name || due.title}</span>
+            <FinanceStatusCell due={due} />
+            <button type="button" onClick={() => onPaid(due)}>Paid</button>
+            <button type="button" onClick={() => onWaive(due)}>Waive</button>
+            <button type="button" onClick={() => onUnpaid(due)}>Reset</button>
+          </div>
+        ))}
+      </div>
+    </article>
   )
 }
 
@@ -1764,6 +1866,23 @@ function getTotals(dues) {
     total.balance = Math.max(0, total.amount - total.paid - total.waived)
     return total
   }, { amount: 0, paid: 0, waived: 0, balance: 0 })
+}
+
+function groupTournamentDues(dues) {
+  const groups = new Map()
+  dues.filter((due) => due.due_type === 'tournament').forEach((due) => {
+    const key = `${due.title}|${due.due_date || ''}|${Number(due.amount || 0)}`
+    const current = groups.get(key) || {
+      key,
+      title: due.title || 'Tournament Fee',
+      dueDate: due.due_date || due.created_at,
+      amount: Number(due.amount || 0),
+      dues: [],
+    }
+    current.dues.push(due)
+    groups.set(key, current)
+  })
+  return Array.from(groups.values()).sort((a, b) => new Date(b.dueDate || 0) - new Date(a.dueDate || 0))
 }
 
 function addMonths(value, count) {
