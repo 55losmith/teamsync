@@ -477,14 +477,10 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const claimRecords = fullData?.parentClaims || data.parentClaims || []
   const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
   const claimablePlayers = claimRoster.filter((player) => !claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id))
-  const totals = getTotals(data.dues)
   const upcoming = data.events.filter((event) => new Date(event.starts_at) >= new Date()).slice(0, 3)
   const nextEvent = upcoming[0]
-  const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
   const recentBroadcast = data.announcements[0]
-  const recentConversation = data.conversations[0]
-  const nextEventDate = nextEvent ? new Date(nextEvent.starts_at) : null
 
   return (
     <div className="page-stack dashboard-page">
@@ -502,67 +498,44 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
         </section>
       )}
-      <section className="dashboard-hero">
-        <div className="hero-copy">
-          <p className="dashboard-kicker">Season Command Center</p>
+      <section className="dashboard-top-grid">
+        <div className="dashboard-summary-stack">
+          <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
+          <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
+          <Stat icon="messages" label="Messages" value={`${data.announcements.length + data.conversations.length} total`} onClick={() => onPage('messages')} />
+        </div>
+        <section className="today-card">
+          <p>{nextEvent ? 'Today' : 'Next Up'}</p>
           <h2>{nextEvent ? nextEvent.title : 'No upcoming event'}</h2>
-          <p>{nextEvent ? `${formatDate(nextEvent.starts_at)} · ${nextEvent.location || 'Location TBD'}` : 'Add your next game or practice to give families a clear destination.'}</p>
-          <div className="hero-actions">
-            <button type="button" onClick={() => onPage('schedule')}>{nextEvent ? 'View Schedule' : 'Add Schedule'}</button>
-            {!isFollower && <button type="button" onClick={() => onPage('messages')}>Message Team</button>}
+          <div>
+            <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Schedule TBD'}</span>
+            <span>{nextEvent?.location || 'Location TBD'}</span>
           </div>
-        </div>
-        <div className="hero-event-card">
-          <span>{nextEventDate ? nextEventDate.toLocaleString(undefined, { month: 'short' }) : 'TBD'}</span>
-          <strong>{nextEventDate ? nextEventDate.getDate() : '--'}</strong>
-          <p>{nextEventDate ? nextEventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Time TBD'}</p>
-          <small>{nextEvent?.opponent ? `vs. ${nextEvent.opponent}` : nextEvent?.event_type || 'Next event'}</small>
-        </div>
+          <footer>
+            <Badge label={nextEvent?.event_type || 'Event'} />
+            <button type="button" onClick={() => onPage('schedule')}>View schedule</button>
+          </footer>
+        </section>
       </section>
-      <section className="dashboard-metrics">
-        <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
-        <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-        <Stat icon="dues" label={isParent ? 'My Dues' : 'Team Deficit'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
-        <Stat icon="pitch" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
-      </section>
-      <section className="dashboard-workspace">
+      <section className="dashboard-bottom-grid">
         <div className="dashboard-panel">
-          <SectionBar title="Upcoming Schedule" action="View all" onAction={() => onPage('schedule')} />
+          <SectionBar title="Schedule" action="Manage" onAction={() => onPage('schedule')} />
           <div className="panel compact-list">
             {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
             {!upcoming.length && <EmptyState title="No events yet" body="Add practices, games, tournaments, and meetings so families know what is next." action="Add schedule" onAction={() => onPage('schedule')} />}
           </div>
         </div>
         <div className="dashboard-panel">
-          <SectionBar title="Pitch Plan" action="Details" onAction={() => onPage('pitch')} />
-          <div className="panel compact-list dashboard-pitch-summary">
-            <div className="pitch-count-pair">
-              <div><strong>{availability.eligible.length}</strong><span>Eligible</span></div>
-              <div><strong>{availability.resting.length}</strong><span>Resting</span></div>
-            </div>
-            {availability.resting.slice(0, 3).map((row) => <PitchStatusRow key={row.player.id} row={row} />)}
-            {!availability.resting.length && <EmptyState title="Pitchers clear" body="No rest issues based on logged pitch counts." action="Log pitches" onAction={() => onPage('pitch')} />}
-          </div>
-        </div>
-        <div className="dashboard-panel">
-          <SectionBar title="Recent Broadcast" action="Messages" onAction={() => onPage('messages')} />
-          <div className="panel dashboard-message-panel">
-            {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team-wide updates will appear here after they are sent." action="Send message" onAction={() => onPage('messages')} />}
-          </div>
-        </div>
-        <div className="dashboard-panel">
-          <SectionBar title="Latest Conversation" action="Open" onAction={() => onPage('messages')} />
-          <div className="panel dashboard-message-panel">
-            {recentConversation ? (
-              <div className="summary-card">
-                <span className="broadcast">{initials(recentConversation.recipient_name || recentConversation.subject)}</span>
-                <div>
-                  <strong>{recentConversation.subject}</strong>
-                  <p>{recentConversation.recipient_name || 'Team conversation'}</p>
-                  <small>{formatShortDate(recentConversation.updated_at || recentConversation.created_at)}</small>
-                </div>
+          <SectionBar title="Messages" action="View all" onAction={() => onPage('messages')} />
+          <div className="panel dashboard-message-list">
+            {data.conversations.slice(0, 4).map((conversation) => (
+              <div className="message-preview" key={conversation.id}>
+                <strong>{conversation.subject}</strong>
+                <p>{conversation.recipient_name || 'Team conversation'}</p>
               </div>
-            ) : <EmptyState title="No conversations yet" body="Private parent and coach threads will appear here." action="Start message" onAction={() => onPage('messages')} />}
+            ))}
+            {!data.conversations.length && recentBroadcast && <MessageCard message={recentBroadcast} />}
+            {!data.conversations.length && !recentBroadcast && <EmptyState title="No messages yet" body="Broadcasts and conversations will appear here." action="Message team" onAction={() => onPage('messages')} />}
           </div>
         </div>
       </section>
@@ -798,6 +771,7 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   const [showForm, setShowForm] = useState(false)
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const pitcherRoster = data.roster.filter(isPitcher)
+  const pitchRows = [...availability.resting, ...availability.eligible].sort((a, b) => a.player.player_name.localeCompare(b.player.player_name))
 
   async function submit(event) {
     event.preventDefault()
@@ -814,20 +788,10 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Pitch Counts" subtitle={`9U Daily Limit: ${team?.daily_pitch_limit || 75} pitches`} action={editable && '+ Log Pitches'} onAction={() => setShowForm(!showForm)} />
-      <section className="two-panels">
-        <MetricCard label="Eligible to pitch" value={availability.eligible.length} tone="green" />
-        <MetricCard label="Need rest" value={availability.resting.length} tone="red" />
-      </section>
-      <section className="pitch-board">
-        <div>
-          <SectionBar title="Pitcher Decisions" />
-          <div className="pitch-grid">
-            {availability.eligible.map((row) => <PitchDecisionCard key={row.player.id} row={row} status="eligible" />)}
-            {availability.resting.map((row) => <PitchDecisionCard key={row.player.id} row={row} status="resting" />)}
-          </div>
-          {!availability.eligible.length && !availability.resting.length && <EmptyState title="No pitchers available yet" body="Tag players as Pitcher on the roster, then log pitch counts after games." />}
-        </div>
+      <PageHeader title="Pitch Counts" subtitle="Pitch Smart compliance and rest-day tracking (9U)" action={editable && '+ Log Pitches'} onAction={() => setShowForm(!showForm)} />
+      <section className="compliance-note">
+        <strong>ⓘ USA Baseball Pitch Smart — Ages 9-10</strong>
+        <p>Daily max: {team?.daily_pitch_limit || 75} pitches. Required rest: 1-20 pitches = 0 days · 21-35 = 1 day · 36-50 = 2 days · 51-65 = 3 days · 66+ = 4 days.</p>
       </section>
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -842,16 +806,44 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
         </form>
       )}
       {editable && !pitcherRoster.length && <EmptyState title="No pitchers tagged" body="Open Roster, edit a player, and check Pitcher so they can appear in pitch count decisions." />}
-      <section className="rest-note">ⓘ Rest days: 1-20 pitches no rest, 21-35 one day, 36-50 two days, 51-65 three days, 66+ four days.</section>
-      <SectionBar title="Needs Rest" />
-      <section className="panel rows">
-        {availability.resting.map((row) => <PitchStatusRow key={row.player.id} row={row} />)}
-        {!availability.resting.length && <p className="muted">No pitchers need rest based on logged pitch counts.</p>}
-      </section>
-      <SectionBar title="Recent Pitch Logs" />
-      <section className="panel rows">
-        {data.pitchCounts.slice(0, 8).map((log) => <PitchLogRow key={log.id} log={log} />)}
-        {!data.pitchCounts.length && <p className="muted">No pitch counts logged yet.</p>}
+      <section className="panel pitch-table-card">
+        <h2>Pitcher Status</h2>
+        <div className="pitch-table-wrap">
+          <table className="pitch-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Status</th>
+                <th>Last Outing</th>
+                <th>Last Pitches</th>
+                <th>Rest</th>
+                <th>Eligible</th>
+                <th>Season</th>
+                <th>Outings</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pitchRows.map((row) => {
+                const resting = row.status === 'resting'
+                const logs = data.pitchCounts.filter((log) => log.roster_member_id === row.player.id)
+                const seasonPitches = logs.reduce((sum, log) => sum + Number(log.pitches || 0), 0)
+                return (
+                  <tr key={row.player.id}>
+                    <td><span>#{row.player.jersey_number || '-'}</span> {row.player.player_name}</td>
+                    <td><Badge label={resting ? 'Resting' : 'Available'} /></td>
+                    <td>{row.last ? formatShortDate(row.last.pitched_on) : '—'}</td>
+                    <td>{row.last?.pitches || 0}</td>
+                    <td>{row.last ? `${restDays(row.last.pitches)}d` : '0d'}</td>
+                    <td>{resting ? formatShortDate(row.availableOn) : 'Today'}</td>
+                    <td>{seasonPitches}</td>
+                    <td>{logs.length}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {!pitchRows.length && <EmptyState title="No pitchers available yet" body="Tag players as Pitcher on the roster, then log pitch counts after games." />}
       </section>
     </div>
   )
@@ -1560,37 +1552,6 @@ function PitchStatusRow({ row }) {
       <span className="number">#{row.player.jersey_number || '-'}</span>
       <div><strong>{row.player.player_name}</strong><p>{row.last.pitches} pitches · {formatShortDate(row.last.pitched_on)} {row.last.opponent ? `· ${row.last.opponent}` : ''}</p></div>
       <p className="resting">Resting until {formatShortDate(row.availableOn)}</p>
-    </article>
-  )
-}
-
-function PitchDecisionCard({ row, status }) {
-  const last = row.last
-  const isResting = status === 'resting'
-  const restLabel = isResting ? `Rest until ${formatShortDate(row.availableOn)}` : 'Available today'
-
-  return (
-    <article className={`pitch-card ${isResting ? 'rest' : 'ready'}`}>
-      <div className="pitch-card-top">
-        <span className="number">#{row.player.jersey_number || '-'}</span>
-        <Badge label={isResting ? 'Needs Rest' : 'Eligible'} />
-      </div>
-      <div>
-        <h3>{row.player.player_name}</h3>
-        <p>{last ? `${last.pitches} pitches on ${formatShortDate(last.pitched_on)}` : 'No recent pitch count'}</p>
-      </div>
-      <strong>{restLabel}</strong>
-      <small>{last?.opponent || 'No opponent logged'}</small>
-    </article>
-  )
-}
-
-function PitchLogRow({ log }) {
-  return (
-    <article className="small-row">
-      <span className="number">#{log.roster_members?.jersey_number || '-'}</span>
-      <div><strong>{log.roster_members?.player_name || 'Unknown player'}</strong><p>{log.pitches} pitches · {formatShortDate(log.pitched_on)} {log.opponent ? `· ${log.opponent}` : ''}</p></div>
-      <Badge label={`${restDays(log.pitches)} rest`} />
     </article>
   )
 }
