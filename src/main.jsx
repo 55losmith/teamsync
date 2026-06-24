@@ -526,7 +526,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <Stat icon="⌁" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
       </section>
       <section className="dashboard-workspace">
-        <div className="dashboard-panel span-2">
+        <div className="dashboard-panel">
           <SectionBar title="Upcoming Schedule" action="View all" onAction={() => onPage('schedule')} />
           <div className="panel compact-list">
             {upcoming.map((event) => <EventRow event={event} key={event.id} />)}

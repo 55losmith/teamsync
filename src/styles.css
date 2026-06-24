@@ -753,7 +753,7 @@ p {
 
 .dashboard-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
   gap: 16px;
   align-items: start;
 }
@@ -764,12 +764,10 @@ p {
   min-width: 0;
 }
 
-.dashboard-panel.span-2 {
-  grid-row: span 2;
-}
-
 .dashboard-message-panel {
-  min-height: 132px;
+  min-height: 146px;
+  display: grid;
+  align-content: start;
 }
 
 .dashboard-pitch-summary {
@@ -803,6 +801,54 @@ p {
   font-size: 0.76rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.dashboard-panel > .section-bar {
+  min-height: 34px;
+}
+
+.dashboard-panel .panel {
+  height: 100%;
+}
+
+.dashboard-pitch-summary .small-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.dashboard-pitch-summary .small-row > div {
+  min-width: 0;
+}
+
+.dashboard-pitch-summary .small-row strong,
+.dashboard-message-panel strong {
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.dashboard-pitch-summary .small-row p {
+  max-width: 100%;
+}
+
+.dashboard-pitch-summary .resting {
+  grid-column: 2;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.dashboard-message-panel .message-card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.dashboard-message-panel .empty-state {
+  margin: 0;
 }
 
 .next-up {
@@ -1028,7 +1074,7 @@ p {
 
 .section-bar h3 {
   color: var(--foreground);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1045,6 +1091,9 @@ p {
 .section-bar button {
   background: transparent;
   color: var(--muted);
+  font-size: 0.88rem;
+  min-height: 30px;
+  padding: 0 2px;
 }
 
 .compact-list,
@@ -1059,8 +1108,8 @@ p {
 .player-row,
 .player-edit-row,
 .due-row {
-  min-height: 68px;
-  padding: 14px 16px;
+  min-height: 64px;
+  padding: 13px 16px;
   border-bottom: 1px solid var(--border);
   transition: background 140ms ease;
 }
@@ -1190,6 +1239,7 @@ p {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.84rem;
+  overflow-wrap: anywhere;
 }
 
 .search {
