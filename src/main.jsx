@@ -658,6 +658,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   const claimRecords = fullData?.parentClaims || data.parentClaims || []
   const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
   const claimablePlayers = claimRoster.filter((player) => !claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id))
+  const parentContactsByPlayer = getParentContactsByPlayer(data.roster, data.members, claimRecords)
   const roster = data.roster.filter((player) => `${player.player_name} ${player.jersey_number}`.toLowerCase().includes(query.toLowerCase()))
 
   async function submit(event) {
@@ -775,6 +776,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
             onInviteParent={() => inviteParent(player)}
             onDelete={() => deletePlayer(player)}
             onSaveEdit={saveEdit}
+            parentContacts={parentContactsByPlayer.get(player.id) || []}
             player={player}
             isClaimedByCurrentParent={claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id)}
             profile={profile}
@@ -1693,7 +1695,7 @@ function FollowerInvitePanel({ claimedPlayers, team }) {
   )
 }
 
-function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, onCancelEdit, onDelete, onEdit, onEditForm, onInviteParent, onSaveEdit, player }) {
+function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, onCancelEdit, onDelete, onEdit, onEditForm, onInviteParent, onSaveEdit, parentContacts, player }) {
   const positions = splitTags(player.position)
 
   if (isEditing) {
@@ -1735,8 +1737,18 @@ function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, on
         {positions.length ? positions.map((position) => <span key={position}>{position}</span>) : <span>No positions</span>}
       </div>
       <div className="player-contact">
-        <strong>{player.parent_name || 'No parent contact'}</strong>
-        <p>{player.parent_email || 'No email'}{player.parent_phone ? ` · ${player.parent_phone}` : ''}</p>
+        <span className="contact-label">{parentContacts.length ? `${parentContacts.length} claimed parent${parentContacts.length === 1 ? '' : 's'}` : 'No claimed parents'}</span>
+        {parentContacts.length ? parentContacts.map((contact) => (
+          <div className={`contact-chip ${contact.source === 'manual' ? 'manual-contact' : ''}`} key={contact.key}>
+            <strong>{contact.name}</strong>
+            <p>{contact.email || 'No email'}{contact.phone ? ` · ${contact.phone}` : ''}</p>
+          </div>
+        )) : (
+          <div className="contact-chip manual-contact">
+            <strong>{player.parent_name || 'No parent contact'}</strong>
+            <p>{player.parent_email || 'No email'}{player.parent_phone ? ` · ${player.parent_phone}` : ''}</p>
+          </div>
+        )}
       </div>
       {isClaimedByCurrentParent && <Badge label="My player" />}
       {editable && <div className="row-actions"><button type="button" onClick={onInviteParent}>Invite Parent</button><button type="button" onClick={onEdit}>Edit</button><button type="button" onClick={onDelete}>Remove</button></div>}
@@ -1973,6 +1985,41 @@ function getClaimedPlayers(roster, profile, claims = []) {
     player.parent_profile_id === profile.id ||
     player.parent_email?.toLowerCase() === profile.email.toLowerCase()
   ))
+}
+
+function getParentContactsByPlayer(roster, members = [], claims = []) {
+  const membersById = new Map(members.map((member) => [member.id, member]))
+  const contactsByPlayer = new Map(roster.map((player) => [player.id, []]))
+
+  claims.forEach((claim) => {
+    const contacts = contactsByPlayer.get(claim.roster_member_id)
+    const parent = membersById.get(claim.parent_profile_id)
+    if (!contacts || !parent) return
+
+    contacts.push({
+      email: parent.email || '',
+      key: `claim:${claim.parent_profile_id}`,
+      name: parent.full_name || parent.email || 'Parent',
+      phone: '',
+      source: 'claimed',
+    })
+  })
+
+  roster.forEach((player) => {
+    const contacts = contactsByPlayer.get(player.id) || []
+    if (!contacts.length && (player.parent_name || player.parent_email || player.parent_phone)) {
+      contacts.push({
+        email: player.parent_email || '',
+        key: `manual:${player.id}`,
+        name: player.parent_name || 'Manual parent contact',
+        phone: player.parent_phone || '',
+        source: 'manual',
+      })
+    }
+    contactsByPlayer.set(player.id, contacts)
+  })
+
+  return contactsByPlayer
 }
 
 function getRecipientOptions(data, profile) {

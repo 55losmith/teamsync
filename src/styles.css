@@ -1801,6 +1801,29 @@ p {
 }
 
 .player-contact {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.contact-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.contact-chip {
+  min-width: 0;
+}
+
+.contact-chip p {
+  overflow-wrap: anywhere;
+}
+
+.manual-contact strong,
+.manual-contact p {
   color: var(--muted);
 }
 
