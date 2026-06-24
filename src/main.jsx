@@ -232,6 +232,7 @@ function PublicShell({ children, profile, onSignOut }) {
 }
 
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isCoach = profile.role === 'coach'
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
@@ -244,6 +245,15 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
       ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages', 'account'].includes(key))
       : navItems.filter(([key]) => parentNavKeys.includes(key))
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
+  const preferredMobileKeys = ['dashboard', 'schedule', 'roster', 'messages']
+  const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
+  const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
+  const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
+
+  function goToPage(key) {
+    setMobileMenuOpen(false)
+    onPage(key)
+  }
 
   return (
     <div className="shell">
@@ -274,8 +284,60 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
         </div>
       </aside>
       <main className="content">{children}</main>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        {mobilePrimaryNav.map(([key, icon, label]) => (
+          <button className={activePage === key ? 'active' : ''} key={key} type="button" onClick={() => goToPage(key)}>
+            <span>{icon}</span>
+            <strong>{mobileLabel(label)}</strong>
+            {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
+            {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
+          </button>
+        ))}
+        {mobileMoreNav.length > 0 && (
+          <button className={mobileMenuOpen || isMoreActive ? 'active' : ''} type="button" onClick={() => setMobileMenuOpen(true)}>
+            <span>•••</span>
+            <strong>More</strong>
+          </button>
+        )}
+      </nav>
+      {mobileMenuOpen && (
+        <div className="mobile-more-overlay">
+          <button aria-label="Close Menu" className="mobile-scrim" type="button" onClick={() => setMobileMenuOpen(false)} />
+          <aside className="mobile-more-drawer">
+            <div className="mobile-more-head">
+              <Brand team={team} />
+              <button aria-label="Close Menu" type="button" onClick={() => setMobileMenuOpen(false)}>×</button>
+            </div>
+            <p className="sidebar-label">{isCoach ? 'Coach View' : 'Parent View'}</p>
+            <nav>
+              {mobileMoreNav.map(([key, icon, label]) => (
+                <button className={activePage === key ? 'active' : ''} key={key} type="button" onClick={() => goToPage(key)}>
+                  <span>{icon}</span>
+                  <strong>{label}</strong>
+                  {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
+                  {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
+                </button>
+              ))}
+            </nav>
+            <div className="mobile-more-profile">
+              <div className="mini-profile">
+                <span>{initials(profile.full_name || profile.email)}</span>
+                <div>
+                  <strong>{profile.full_name || profile.email}</strong>
+                  <small>{profile.role}</small>
+                </div>
+              </div>
+              <button type="button" onClick={onSignOut}>Sign Out</button>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   )
+}
+
+function mobileLabel(label) {
+  return label === 'Dashboard' ? 'Home' : label === 'Finances' ? 'Finance' : label
 }
 
 function Brand({ team }) {
