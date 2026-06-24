@@ -1516,8 +1516,7 @@ p {
 
 .section-bar,
 .split,
-.small-row,
-.player-row {
+.small-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1564,6 +1563,21 @@ p {
   padding: 13px 16px;
   border-bottom: 1px solid var(--border);
   transition: background 140ms ease;
+}
+
+.player-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.player-row > div:first-of-type {
+  min-width: 0;
+}
+
+.player-row .row-actions {
+  justify-content: flex-end;
 }
 
 .small-row:hover,
@@ -2281,6 +2295,7 @@ p {
   .player-row,
   .small-row {
     align-items: flex-start;
+    display: flex;
     flex-direction: column;
   }
 

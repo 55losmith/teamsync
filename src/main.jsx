@@ -233,11 +233,14 @@ function PublicShell({ children, profile, onSignOut }) {
 
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
   const isCoach = profile.role === 'coach'
+  const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
+  const parentNavKeys = ['dashboard', 'schedule', 'dues', 'messages', 'account']
+  if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
   const visibleNav = isCoach
     ? navItems
     : profile.role === 'follower'
       ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages', 'account'].includes(key))
-      : navItems.filter(([key]) => key !== 'settings')
+      : navItems.filter(([key]) => parentNavKeys.includes(key))
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
 
   return (
@@ -263,7 +266,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
           </div>
           <button className="signout" type="button" onClick={onSignOut}>↪ Sign Out</button>
           {unreadNotifications > 0 && <small className="notification-pill">{unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}</small>}
-          <small className="muted-dark">{data.roster.length} players · Code {team?.join_code}</small>
+          {isCoach && <small className="muted-dark">{data.roster.length} players · Code {team?.join_code}</small>}
         </div>
       </aside>
       <main className="content">{children}</main>
@@ -312,11 +315,13 @@ function MissingEnv() {
 function AuthScreen() {
   const [mode, setMode] = useState('login')
   const roleParam = new URLSearchParams(window.location.search).get('role')
+  const teamCodeParam = new URLSearchParams(window.location.search).get('teamCode') || ''
   const initialRole = roleParam === 'parent' || roleParam === 'follower' ? roleParam : 'coach'
   const [role, setRole] = useState(initialRole)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [teamCode, setTeamCode] = useState(teamCodeParam)
   const [message, setMessage] = useState('')
   const isSignup = mode === 'signup'
 
@@ -341,8 +346,20 @@ function AuthScreen() {
       })
       : await supabase.auth.signInWithPassword({ email, password })
 
-    if (response.error) setMessage(response.error.message)
-    else if (isSignup && !response.data.session) setMessage('Check your email to confirm your account, then sign in.')
+    if (response.error) {
+      setMessage(response.error.message)
+      return
+    }
+
+    if (teamCode.trim() && response.data.session) {
+      const { error: joinError } = await supabase.rpc('join_team_by_code', { p_join_code: teamCode.trim().toUpperCase() })
+      if (joinError) {
+        setMessage(joinError.message || 'Signed in, but that team code was not found.')
+        return
+      }
+    }
+
+    if (isSignup && !response.data.session) setMessage('Check your email to confirm your account, then sign in.')
   }
 
   return (
@@ -366,6 +383,7 @@ function AuthScreen() {
                 <button className={role === 'parent' ? 'active' : ''} type="button" onClick={() => setRole('parent')}>Parent</button>
                 {role === 'follower' && <button className="active" type="button">Follower</button>}
               </div>
+              <label>Team code<input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Enter a team code or leave blank to create later" /></label>
             </>
           )}
           <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
@@ -485,8 +503,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   return (
     <div className="page-stack dashboard-page">
       <PageHeader title={isFollower ? 'Follower Dashboard' : isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
-      {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
-      {isParent && claimedPlayers.length > 0 && <FollowerInvitePanel claimedPlayers={claimedPlayers} team={team} />}
+      {isParent && claimedPlayers.length === 0 && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -948,9 +965,15 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
         <div className="dues-breakdown">
           <div><span>Monthly Dues</span><strong>{money(monthlyTotals.paid)} / {money(monthlyTotals.amount)}</strong></div>
           <div><span>Tournament Fees</span><strong>{money(tournamentTotals.paid)} / {money(tournamentTotals.amount)}</strong></div>
-          <div><span>Team Deficit</span><strong>{money(monthTotals.balance)}</strong></div>
+          <div><span>{editable ? 'Team Deficit' : 'My Balance'}</span><strong>{money(monthTotals.balance)}</strong></div>
         </div>
       </section>
+      {!editable && (
+        <section className="panel rows">
+          {monthDues.map((due) => <DueRow due={due} editable={false} key={due.id} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
+          {!monthDues.length && <EmptyState title="No dues assigned" body="Once dues are assigned for your claimed player, your monthly and tournament balances will appear here." />}
+        </section>
+      )}
       {editable && showForm && (
         <form className="panel form grid-form finance-form" onSubmit={submit}>
           <div className="form-section-title">{form.due_type === 'monthly' ? 'Assign Monthly Dues' : 'Assign Tournament Fee'}</div>
@@ -979,7 +1002,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           {!form.roster_member_id && <p className="form-help">Whole team creates one due record for each roster player so every family can see their own balance.</p>}
         </form>
       )}
-      {financeTab === 'monthly' ? (
+      {editable && (financeTab === 'monthly' ? (
         <>
           <section className="finance-month-bar">
             <button type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))}>‹</button>
@@ -1031,7 +1054,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           {tournamentGroups.map((group) => <TournamentFeeCard group={group} key={group.key} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
           {!tournamentGroups.length && <EmptyState title="No tournament fees yet" body="Create a tournament fee for the whole team or a specific player." />}
         </section>
-      )}
+      ))}
     </div>
   )
 }
@@ -1088,79 +1111,63 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   const [mode, setMode] = useState(profile.role === 'follower' ? 'broadcast' : 'conversation')
   const [showForm, setShowForm] = useState(false)
   const [selectedConversationId, setSelectedConversationId] = useState('')
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState('')
   const [replyBody, setReplyBody] = useState('')
-  const recipientOptions = getRecipientOptions(data)
+  const recipientOptions = getRecipientOptions(data, profile)
   const selectedConversation = data.conversations.find((conversation) => conversation.id === selectedConversationId)
+  const selectedBroadcast = data.announcements.find((announcement) => announcement.id === selectedBroadcastId)
+
+  function startBroadcastReply(broadcast) {
+    setMode('conversation')
+    setSelectedBroadcastId('')
+    setSelectedConversationId('')
+    setConversationForm({
+      subject: `Re: ${broadcast.title}`,
+      recipient_key: profile.role === 'coach' ? 'all_parents' : 'all_coaches',
+      body: '',
+    })
+    setShowForm(true)
+  }
 
   async function submitBroadcast(event) {
     event.preventDefault()
     const { data: userData } = await supabase.auth.getUser()
-    await saveRow('announcements', { ...form, team_id: team.id, created_by: userData.user.id }, emptyForms.announcement, setForm, onRefresh, setMessage)
+    setMessage('')
+    const { error } = await supabase.from('announcements').insert({ ...form, team_id: team.id, created_by: userData.user.id })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setForm(emptyForms.announcement)
     setMessage('Broadcast sent.')
     setShowForm(false)
+    setMode('broadcast')
+    onRefresh()
   }
 
   async function submitConversation(event) {
     event.preventDefault()
     setMessage('')
-    const { data: userData } = await supabase.auth.getUser()
     const recipient = resolveRecipient(conversationForm.recipient_key, recipientOptions)
 
-    const { data: conversation, error: conversationError } = await supabase
-      .from('conversations')
-      .insert({
-        team_id: team.id,
-        subject: conversationForm.subject,
-        recipient_type: recipient.type,
-        recipient_name: recipient.label,
-        recipient_profile_id: recipient.profileId,
-        roster_member_id: recipient.rosterMemberId,
-        created_by: userData.user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .maybeSingle()
+    const { error } = await supabase.rpc('start_conversation_thread', {
+      p_body: conversationForm.body,
+      p_recipient_name: recipient.label,
+      p_recipient_profile_id: recipient.profileId || null,
+      p_recipient_type: recipient.type,
+      p_roster_member_id: recipient.rosterMemberId || null,
+      p_subject: conversationForm.subject,
+      p_team_id: team.id,
+    })
 
-    if (conversationError || !conversation) {
-      setMessage(conversationError?.message || 'Unable to start conversation.')
+    if (error) {
+      setMessage(error.message || 'Unable to start conversation.')
       return
-    }
-
-    const { error: messageError } = await supabase
-      .from('conversation_messages')
-      .insert({
-        team_id: team.id,
-        conversation_id: conversation.id,
-        sender_id: userData.user.id,
-        body: conversationForm.body,
-      })
-
-    if (messageError) {
-      setMessage(messageError.message)
-      return
-    }
-
-    const recipients = notificationRecipients(recipient, data.members).filter((recipientId) => recipientId !== userData.user.id)
-    if (recipients.length) {
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(recipients.map((recipientId) => ({
-          team_id: team.id,
-          recipient_id: recipientId,
-          conversation_id: conversation.id,
-          title: conversationForm.subject,
-          body: conversationForm.body,
-          notification_type: 'message',
-        })))
-
-      if (notificationError) {
-        setMessage(notificationError.message)
-        return
-      }
     }
 
     setConversationForm(emptyForms.conversation)
     setShowForm(false)
+    setMessage('Message sent.')
     onRefresh()
   }
 
@@ -1168,12 +1175,9 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
     event.preventDefault()
     if (!selectedConversation || !replyBody.trim()) return
     setMessage('')
-    const { data: userData } = await supabase.auth.getUser()
-    const { error } = await supabase.from('conversation_messages').insert({
-      team_id: team.id,
-      conversation_id: selectedConversation.id,
-      sender_id: userData.user.id,
-      body: replyBody.trim(),
+    const { error } = await supabase.rpc('reply_to_conversation_thread', {
+      p_body: replyBody.trim(),
+      p_conversation_id: selectedConversation.id,
     })
 
     if (error) {
@@ -1181,15 +1185,15 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
       return
     }
 
-    await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', selectedConversation.id)
     setReplyBody('')
+    setMessage('Reply sent.')
     onRefresh()
   }
 
   return (
     <div className="page-stack">
       <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
-      <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
+      <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId(''); setSelectedBroadcastId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && profile.role === 'coach' && (
         <form className="panel form" onSubmit={submitBroadcast}>
           <input placeholder="Broadcast title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -1211,10 +1215,13 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
       {mode === 'broadcast' ? (
         <>
           <SectionBar title="Team Broadcasts" count={data.announcements.length} />
-          <section className="rows">
-            {data.announcements.map((message) => <MessageCard key={message.id} message={message} />)}
-            {!data.announcements.length && <EmptyState title="No broadcasts yet" body="Broadcasts are one-way team updates for game reminders, weather changes, and announcements." />}
-          </section>
+          {selectedBroadcast && <BroadcastDetail broadcast={selectedBroadcast} onBack={() => setSelectedBroadcastId('')} onReply={profile.role === 'follower' ? null : () => startBroadcastReply(selectedBroadcast)} />}
+          {!selectedBroadcast && (
+            <section className="rows">
+              {data.announcements.map((message) => <MessageCard key={message.id} message={message} onOpen={() => setSelectedBroadcastId(message.id)} />)}
+              {!data.announcements.length && <EmptyState title="No broadcasts yet" body="Broadcasts are team updates for game reminders, weather changes, and announcements." />}
+            </section>
+          )}
         </>
       ) : (
         <>
@@ -1239,10 +1246,15 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   )
 }
 
-function AccountPage({ onRefresh, profile, setMessage }) {
+function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
   const [fullName, setFullName] = useState(profile.full_name || '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const isParent = profile.role === 'parent'
+  const claimRoster = fullData?.roster || data.roster
+  const claimRecords = fullData?.parentClaims || data.parentClaims || []
+  const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
+  const claimablePlayers = claimRoster.filter((player) => !claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id))
 
   async function saveProfile(event) {
     event.preventDefault()
@@ -1290,6 +1302,12 @@ function AccountPage({ onRefresh, profile, setMessage }) {
   return (
     <div className="page-stack">
       <PageHeader title="Account" subtitle="Your TeamSync login and profile" />
+      {isParent && (
+        <>
+          <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />
+          {claimedPlayers.length > 0 && <FollowerInvitePanel claimedPlayers={claimedPlayers} team={team} />}
+        </>
+      )}
       <section className="two-panels">
         <form className="panel form" onSubmit={saveProfile}>
           <h2>Profile</h2>
@@ -1686,9 +1704,9 @@ function DueRow({ due, editable, onPaid, onUnpaid, onWaive }) {
   )
 }
 
-function MessageCard({ message }) {
+function MessageCard({ message, onOpen }) {
   return (
-    <article className="message-card">
+    <article className={`message-card ${onOpen ? 'clickable-card' : ''}`} onClick={onOpen}>
       <span className="broadcast">⌁</span>
       <div>
         <h3>{message.title} <Badge label="Broadcast" /></h3>
@@ -1696,6 +1714,18 @@ function MessageCard({ message }) {
         <small>{formatShortDate(message.created_at)}</small>
       </div>
     </article>
+  )
+}
+
+function BroadcastDetail({ broadcast, onBack, onReply }) {
+  return (
+    <section className="panel message-thread">
+      <button type="button" onClick={onBack}>Back to broadcasts</button>
+      <h2>{broadcast.title}</h2>
+      <p>{broadcast.body}</p>
+      <small className="muted">{formatDate(broadcast.created_at)}</small>
+      {onReply && <button className="primary fit" type="button" onClick={onReply}>Reply in Conversation</button>}
+    </section>
   )
 }
 
@@ -1800,14 +1830,20 @@ function getClaimedPlayers(roster, profile, claims = []) {
   ))
 }
 
-function getRecipientOptions(data) {
-  const options = [
-    { key: 'all_team', label: 'Everyone on the team', type: 'all_team' },
-    { key: 'all_parents', label: 'All parents', type: 'all_parents' },
-    { key: 'all_coaches', label: 'All coaches', type: 'all_coaches' },
-  ]
+function getRecipientOptions(data, profile) {
+  const isCoach = profile?.role === 'coach'
+  const options = isCoach
+    ? [
+      { key: 'all_team', label: 'Everyone on the team', type: 'all_team' },
+      { key: 'all_parents', label: 'All parents', type: 'all_parents' },
+      { key: 'all_coaches', label: 'All coaches', type: 'all_coaches' },
+    ]
+    : [
+      { key: 'all_coaches', label: 'All coaches', type: 'all_coaches' },
+    ]
 
   data.members.forEach((member) => {
+    if (!isCoach && member.role !== 'coach') return
     options.push({
       key: `profile:${member.id}`,
       label: `${member.full_name || member.email} (${member.role})`,
@@ -1816,35 +1852,24 @@ function getRecipientOptions(data) {
     })
   })
 
-  data.roster.forEach((player) => {
-    if (!player.parent_name && !player.parent_email) return
-    options.push({
-      key: `parent:${player.id}`,
-      label: `${player.parent_name || 'Parent'} for ${player.player_name}`,
-      rosterMemberId: player.id,
-      parentEmail: player.parent_email,
-      type: 'player_parent',
+  if (isCoach) {
+    data.roster.forEach((player) => {
+      if (!player.parent_name && !player.parent_email) return
+      options.push({
+        key: `parent:${player.id}`,
+        label: `${player.parent_name || 'Parent'} for ${player.player_name}`,
+        rosterMemberId: player.id,
+        parentEmail: player.parent_email,
+        type: 'player_parent',
+      })
     })
-  })
+  }
 
   return options
 }
 
 function resolveRecipient(key, options) {
   return options.find((option) => option.key === key) || options[0]
-}
-
-function notificationRecipients(recipient, members) {
-  if (recipient.type === 'all_team') return members.map((member) => member.id)
-  if (recipient.type === 'all_parents') return members.filter((member) => member.role === 'parent').map((member) => member.id)
-  if (recipient.type === 'all_coaches') return members.filter((member) => member.role === 'coach').map((member) => member.id)
-  if (recipient.type === 'profile' && recipient.profileId) return [recipient.profileId]
-  if (recipient.type === 'player_parent' && recipient.parentEmail) {
-    return members
-      .filter((member) => member.email?.toLowerCase() === recipient.parentEmail.toLowerCase())
-      .map((member) => member.id)
-  }
-  return []
 }
 
 async function saveRow(table, payload, empty, setForm, onRefresh, setMessage) {
