@@ -328,6 +328,9 @@ function AuthScreen() {
   const [teamCode, setTeamCode] = useState(teamCodeParam)
   const [message, setMessage] = useState('')
   const isSignup = mode === 'signup'
+  const teamCodeHelp = role === 'coach'
+    ? 'Enter a code to join an existing team, or leave this blank to create a new team after signup. A new team code will be generated automatically.'
+    : 'Parents and followers need a team code from a coach or invite link to join an existing team.'
 
   async function submit(event) {
     event.preventDefault()
@@ -387,7 +390,8 @@ function AuthScreen() {
                 <button className={role === 'parent' ? 'active' : ''} type="button" onClick={() => setRole('parent')}>Parent</button>
                 {role === 'follower' && <button className="active" type="button">Follower</button>}
               </div>
-              <label>Team code<input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Enter a team code or leave blank to create later" /></label>
+              <label>Existing team code<input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Example: AB12CD34" /></label>
+              <p className="form-help">{teamCodeHelp}</p>
             </>
           )}
           <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
