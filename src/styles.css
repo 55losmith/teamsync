@@ -28,6 +28,7 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 750;
+  min-width: 0;
 }
 
 input,
@@ -196,6 +197,7 @@ p {
 
 .content {
   padding: 34px 56px 64px 32px;
+  min-width: 0;
 }
 
 .public-app {
@@ -240,6 +242,7 @@ p {
 .page-stack {
   display: grid;
   gap: 24px;
+  min-width: 0;
 }
 
 .page-header {
@@ -1147,17 +1150,142 @@ p {
 }
 
 @media (max-width: 900px) {
+  body {
+    background: #f5f6f8;
+  }
+
   .shell {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    position: static;
+    position: sticky;
+    z-index: 10;
     height: auto;
+    top: 0;
+    gap: 12px;
+    padding: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  }
+
+  .sidebar .brand {
+    min-width: 0;
+  }
+
+  .brand p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-label {
+    display: none;
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 8px;
+    margin: 2px -12px 0;
+    padding: 0 12px 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-list button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    gap: 8px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .nav-list button span {
+    width: auto;
+  }
+
+  .sidebar-footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0;
+    padding: 10px 0 0;
+  }
+
+  .sidebar-footer .muted-dark,
+  .notification-pill {
+    grid-column: 1 / -1;
+  }
+
+  .mini-profile {
+    min-width: 0;
+  }
+
+  .mini-profile > div {
+    min-width: 0;
+  }
+
+  .mini-profile strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .signout {
+    justify-self: end;
+    min-height: 34px;
+    padding: 0 10px;
+    background: #172235;
   }
 
   .content {
-    padding: 24px 16px 48px;
+    padding: 18px 14px 40px;
+  }
+
+  .public-app {
+    width: min(100% - 28px, 980px);
+    padding: 18px 0 40px;
+  }
+
+  .public-topbar {
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .auth-copy h1 {
+    font-size: 2.25rem;
+    line-height: 1;
+  }
+
+  .auth-copy p {
+    margin-top: 12px;
+  }
+
+  .page-stack {
+    gap: 16px;
+  }
+
+  .page-header {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .page-header h1 {
+    font-size: 1.38rem;
+  }
+
+  .page-header .primary {
+    width: 100%;
+  }
+
+  .panel {
+    padding: 16px;
   }
 
   .stats,
@@ -1174,7 +1302,6 @@ p {
     grid-template-columns: 1fr;
   }
 
-  .page-header,
   .next-up,
   .due-row,
   .player-row,
@@ -1183,9 +1310,52 @@ p {
     flex-direction: column;
   }
 
+  .stats,
+  .dues-summary {
+    gap: 10px;
+  }
+
+  .stat-card {
+    min-height: 92px;
+    padding: 14px;
+  }
+
+  .stat-card b {
+    top: 16px;
+  }
+
+  .metric {
+    min-height: 76px;
+    padding: 14px;
+  }
+
+  .metric strong {
+    font-size: 1.35rem;
+  }
+
+  .month-switcher {
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    gap: 10px;
+  }
+
+  .month-switcher button {
+    width: 38px;
+    min-height: 38px;
+  }
+
+  .dues-breakdown {
+    gap: 8px;
+  }
+
+  .dues-breakdown div {
+    padding: 10px;
+  }
+
   .due-row {
     display: flex;
     width: 100%;
+    gap: 10px;
+    padding: 14px;
   }
 
   .due-balance {
@@ -1194,14 +1364,196 @@ p {
 
   .due-actions {
     justify-content: flex-start;
+    width: 100%;
+  }
+
+  .due-actions button {
+    flex: 1 1 84px;
   }
 
   .player-edit-row {
     grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .player-row,
+  .small-row {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .row-actions {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-items: stretch;
+  }
+
+  .row-actions button,
+  .small-row button {
+    min-height: 34px;
+    border-radius: 8px;
+    background: #eef2f7;
+    padding: 0 8px;
+  }
+
+  .segmented {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .segmented button {
+    flex: 1 0 auto;
+    padding: 0 12px;
   }
 
   .event-card {
     grid-template-columns: 1fr;
     gap: 12px;
+    padding: 18px;
+  }
+
+  .date-block {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .date-block strong {
+    font-size: 1.35rem;
+  }
+
+  .score-form input {
+    flex: 1 1 86px;
+    width: auto;
+  }
+
+  .score-form button {
+    flex: 1 1 120px;
+  }
+
+  .message-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px 14px;
+  }
+
+  .message-thread {
+    padding: 16px;
+  }
+
+  .member-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .member-row .badge,
+  .member-row button {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .settings-invite {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding-top: 24px;
+  }
+
+  .invite-box {
+    max-width: none;
+  }
+
+  .position-picker {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .position-picker label {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .content {
+    padding: 14px 10px 34px;
+  }
+
+  .sidebar {
+    padding: 10px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand strong {
+    font-size: 0.95rem;
+  }
+
+  .brand p,
+  .muted-dark {
+    font-size: 0.72rem;
+  }
+
+  .mini-profile > span {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mini-profile small,
+  .sidebar-footer .muted-dark {
+    display: none;
+  }
+
+  .page-header h1 {
+    font-size: 1.28rem;
+  }
+
+  .auth-copy h1 {
+    font-size: 1.9rem;
+  }
+
+  .tabs button,
+  .segmented button {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.9rem;
+  }
+
+  .month-switcher {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    padding: 12px;
+  }
+
+  .month-switcher strong {
+    font-size: 1rem;
+  }
+
+  .month-switcher p {
+    font-size: 0.8rem;
+  }
+
+  .number,
+  .money,
+  .broadcast {
+    width: 38px;
+    height: 38px;
+  }
+
+  .player-row .tags {
+    margin: 8px 0 0;
+  }
+
+  .row-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .event-card,
+  .message-card,
+  .panel {
+    border-radius: 8px;
   }
 }
