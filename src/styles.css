@@ -585,10 +585,122 @@ p {
   text-transform: uppercase;
 }
 
-.stats {
+.stats,
+.dashboard-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.dashboard-page {
+  gap: 18px;
+}
+
+.dashboard-hero {
+  min-height: 260px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 24px;
+  align-items: stretch;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%),
+    linear-gradient(135deg, #111827 0%, #1f2937 58%, #7f1519 100%);
+  color: #ffffff;
+  padding: 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.dashboard-kicker {
+  width: fit-content;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #d1d5db;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.hero-copy h2 {
+  max-width: 760px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 850;
+  line-height: 0.96;
+}
+
+.hero-copy > p:not(.dashboard-kicker) {
+  max-width: 680px;
+  margin-top: 14px;
+  color: #d8dee8;
+  font-size: 1rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.hero-actions button {
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 0 16px;
+}
+
+.hero-actions button + button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.hero-event-card {
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  text-align: center;
+}
+
+.hero-event-card span {
+  color: #fca5a5;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-event-card strong {
+  margin-top: 8px;
+  font-size: 4.4rem;
+  line-height: 0.9;
+}
+
+.hero-event-card p {
+  margin-top: 12px;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.hero-event-card small {
+  margin-top: 6px;
+  color: #d1d5db;
 }
 
 .stat-card {
@@ -637,6 +749,60 @@ p {
   grid-row: 1 / span 2;
   color: #c5cfdd;
   font-size: 1.5rem;
+}
+
+.dashboard-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-panel.span-2 {
+  grid-row: span 2;
+}
+
+.dashboard-message-panel {
+  min-height: 132px;
+}
+
+.dashboard-pitch-summary {
+  gap: 0;
+}
+
+.pitch-count-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pitch-count-pair div {
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 14px;
+}
+
+.pitch-count-pair strong {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.pitch-count-pair span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .next-up {
@@ -1496,8 +1662,10 @@ p {
   }
 
   .stats,
+  .dashboard-metrics,
   .dashboard-columns,
   .dashboard-grid,
+  .dashboard-workspace,
   .dues-summary,
   .dues-breakdown,
   .member-columns,
@@ -1519,8 +1687,44 @@ p {
   }
 
   .stats,
+  .dashboard-metrics,
   .dues-summary {
     gap: 10px;
+  }
+
+  .dashboard-hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .hero-copy {
+    justify-content: start;
+  }
+
+  .hero-copy h2 {
+    font-size: 2.25rem;
+  }
+
+  .hero-event-card {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    align-items: center;
+    column-gap: 14px;
+    text-align: left;
+  }
+
+  .hero-event-card strong {
+    grid-row: 1 / span 3;
+    font-size: 3rem;
+  }
+
+  .hero-event-card span,
+  .hero-event-card p,
+  .hero-event-card small {
+    grid-column: 2;
+    margin-top: 0;
   }
 
   .toolbar {
@@ -1768,6 +1972,22 @@ p {
 
   .row-actions {
     flex-direction: column;
+  }
+
+  .dashboard-hero {
+    padding: 18px;
+  }
+
+  .hero-copy h2 {
+    font-size: 1.9rem;
+  }
+
+  .hero-actions {
+    display: grid;
+  }
+
+  .pitch-count-pair {
+    grid-template-columns: 1fr;
   }
 
   .event-card,

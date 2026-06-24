@@ -484,9 +484,10 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
   const recentBroadcast = data.announcements[0]
   const recentConversation = data.conversations[0]
+  const nextEventDate = nextEvent ? new Date(nextEvent.starts_at) : null
 
   return (
-    <div className="page-stack">
+    <div className="page-stack dashboard-page">
       <PageHeader title={isFollower ? 'Follower Dashboard' : isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
       {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {isParent && claimedPlayers.length > 0 && <FollowerInvitePanel claimedPlayers={claimedPlayers} team={team} />}
@@ -501,47 +502,57 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
         </section>
       )}
-      <section className="stats">
+      <section className="dashboard-hero">
+        <div className="hero-copy">
+          <p className="dashboard-kicker">Season Command Center</p>
+          <h2>{nextEvent ? nextEvent.title : 'No upcoming event'}</h2>
+          <p>{nextEvent ? `${formatDate(nextEvent.starts_at)} · ${nextEvent.location || 'Location TBD'}` : 'Add your next game or practice to give families a clear destination.'}</p>
+          <div className="hero-actions">
+            <button type="button" onClick={() => onPage('schedule')}>{nextEvent ? 'View Schedule' : 'Add Schedule'}</button>
+            {!isFollower && <button type="button" onClick={() => onPage('messages')}>Message Team</button>}
+          </div>
+        </div>
+        <div className="hero-event-card">
+          <span>{nextEventDate ? nextEventDate.toLocaleString(undefined, { month: 'short' }) : 'TBD'}</span>
+          <strong>{nextEventDate ? nextEventDate.getDate() : '--'}</strong>
+          <p>{nextEventDate ? nextEventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Time TBD'}</p>
+          <small>{nextEvent?.opponent ? `vs. ${nextEvent.opponent}` : nextEvent?.event_type || 'Next event'}</small>
+        </div>
+      </section>
+      <section className="dashboard-metrics">
         <Stat icon="♙" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
         <Stat icon="▣" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-        <Stat icon="$" label={isParent ? 'My Dues' : 'Outstanding Dues'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
+        <Stat icon="$" label={isParent ? 'My Dues' : 'Team Deficit'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
         <Stat icon="⌁" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
       </section>
-      {nextEvent && (
-        <section className="next-up">
-          <div>
-            <p>Next Up</p>
-            <h2>{nextEvent.title}</h2>
-            <span>{formatDate(nextEvent.starts_at)} · {nextEvent.location || 'Location TBD'}</span>
-          </div>
-          <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
-        </section>
-      )}
-      <section className="dashboard-grid">
-        <div className="dashboard-main">
+      <section className="dashboard-workspace">
+        <div className="dashboard-panel span-2">
           <SectionBar title="Upcoming Schedule" action="View all" onAction={() => onPage('schedule')} />
           <div className="panel compact-list">
             {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
             {!upcoming.length && <EmptyState title="No events yet" body="Add practices, games, tournaments, and meetings so families know what is next." action="Add schedule" onAction={() => onPage('schedule')} />}
           </div>
         </div>
-        <div className="dashboard-side">
-          <SectionBar title="Pitch Availability" action="Details" onAction={() => onPage('pitch')} />
-          <div className="panel compact-list">
-            <p className="muted">{availability.eligible.length} players eligible · {availability.resting.length} need rest</p>
-            {availability.resting.slice(0, 4).map((row) => <PitchStatusRow key={row.player.id} row={row} />)}
-            {!availability.resting.length && <EmptyState title="No rest issues" body="Once you log pitch counts, this panel will show players who need rest." action="Log pitches" onAction={() => onPage('pitch')} />}
+        <div className="dashboard-panel">
+          <SectionBar title="Pitch Plan" action="Details" onAction={() => onPage('pitch')} />
+          <div className="panel compact-list dashboard-pitch-summary">
+            <div className="pitch-count-pair">
+              <div><strong>{availability.eligible.length}</strong><span>Eligible</span></div>
+              <div><strong>{availability.resting.length}</strong><span>Resting</span></div>
+            </div>
+            {availability.resting.slice(0, 3).map((row) => <PitchStatusRow key={row.player.id} row={row} />)}
+            {!availability.resting.length && <EmptyState title="Pitchers clear" body="No rest issues based on logged pitch counts." action="Log pitches" onAction={() => onPage('pitch')} />}
           </div>
         </div>
-        <div className="dashboard-main">
+        <div className="dashboard-panel">
           <SectionBar title="Recent Broadcast" action="Messages" onAction={() => onPage('messages')} />
-          <div className="panel">
+          <div className="panel dashboard-message-panel">
             {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team-wide updates will appear here after they are sent." action="Send message" onAction={() => onPage('messages')} />}
           </div>
         </div>
-        <div className="dashboard-side">
+        <div className="dashboard-panel">
           <SectionBar title="Latest Conversation" action="Open" onAction={() => onPage('messages')} />
-          <div className="panel">
+          <div className="panel dashboard-message-panel">
             {recentConversation ? (
               <div className="summary-card">
                 <span className="broadcast">{initials(recentConversation.recipient_name || recentConversation.subject)}</span>
