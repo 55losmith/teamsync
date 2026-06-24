@@ -1758,17 +1758,55 @@ p {
 
 .player-row {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) auto auto;
+  grid-template-columns: 54px minmax(170px, 1fr) minmax(160px, 0.82fr) minmax(220px, 1fr) auto;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
-.player-row > div:first-of-type {
+.player-row > div {
   min-width: 0;
+}
+
+.player-main strong,
+.player-contact strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.player-main p,
+.player-contact p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.player-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.player-positions span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 9px;
+}
+
+.player-contact {
+  color: var(--muted);
 }
 
 .player-row .row-actions {
   justify-content: flex-end;
+  min-width: 240px;
 }
 
 .small-row:hover,
@@ -1891,7 +1929,6 @@ p {
 }
 
 .small-row p,
-.player-row p,
 .message-card p {
   margin-top: 3px;
   color: var(--muted);

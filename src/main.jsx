@@ -1727,11 +1727,16 @@ function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, on
   return (
     <article className="player-row">
       <span className="number">#{player.jersey_number || '-'}</span>
-      <div>
+      <div className="player-main">
         <strong>{player.player_name}</strong>
-        <div className="tags">{positions.map((position) => <span key={position}>{position}</span>)}</div>
         <p>B/T: {player.bats || '-'} / {player.throws || '-'}</p>
-        <p>{player.parent_name || 'Parent'} · {player.parent_email || 'No email'} {player.parent_phone ? `· ${player.parent_phone}` : ''}</p>
+      </div>
+      <div className="player-positions">
+        {positions.length ? positions.map((position) => <span key={position}>{position}</span>) : <span>No positions</span>}
+      </div>
+      <div className="player-contact">
+        <strong>{player.parent_name || 'No parent contact'}</strong>
+        <p>{player.parent_email || 'No email'}{player.parent_phone ? ` · ${player.parent_phone}` : ''}</p>
       </div>
       {isClaimedByCurrentParent && <Badge label="My player" />}
       {editable && <div className="row-actions"><button type="button" onClick={onInviteParent}>Invite Parent</button><button type="button" onClick={onEdit}>Edit</button><button type="button" onClick={onDelete}>Remove</button></div>}
