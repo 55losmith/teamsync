@@ -482,6 +482,8 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const nextEvent = upcoming[0]
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
+  const recentBroadcast = data.announcements[0]
+  const recentConversation = data.conversations[0]
 
   return (
     <div className="page-stack">
@@ -515,20 +517,41 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
         </section>
       )}
-      <section className="dashboard-columns">
-        <div>
+      <section className="dashboard-grid">
+        <div className="dashboard-main">
           <SectionBar title="Upcoming Schedule" action="View all" onAction={() => onPage('schedule')} />
           <div className="panel compact-list">
             {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
             {!upcoming.length && <EmptyState title="No events yet" body="Add practices, games, tournaments, and meetings so families know what is next." action="Add schedule" onAction={() => onPage('schedule')} />}
           </div>
         </div>
-        <div>
+        <div className="dashboard-side">
           <SectionBar title="Pitch Availability" action="Details" onAction={() => onPage('pitch')} />
           <div className="panel compact-list">
             <p className="muted">{availability.eligible.length} players eligible · {availability.resting.length} need rest</p>
             {availability.resting.slice(0, 4).map((row) => <PitchStatusRow key={row.player.id} row={row} />)}
             {!availability.resting.length && <EmptyState title="No rest issues" body="Once you log pitch counts, this panel will show players who need rest." action="Log pitches" onAction={() => onPage('pitch')} />}
+          </div>
+        </div>
+        <div className="dashboard-main">
+          <SectionBar title="Recent Broadcast" action="Messages" onAction={() => onPage('messages')} />
+          <div className="panel">
+            {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team-wide updates will appear here after they are sent." action="Send message" onAction={() => onPage('messages')} />}
+          </div>
+        </div>
+        <div className="dashboard-side">
+          <SectionBar title="Latest Conversation" action="Open" onAction={() => onPage('messages')} />
+          <div className="panel">
+            {recentConversation ? (
+              <div className="summary-card">
+                <span className="broadcast">{initials(recentConversation.recipient_name || recentConversation.subject)}</span>
+                <div>
+                  <strong>{recentConversation.subject}</strong>
+                  <p>{recentConversation.recipient_name || 'Team conversation'}</p>
+                  <small>{formatShortDate(recentConversation.updated_at || recentConversation.created_at)}</small>
+                </div>
+              </div>
+            ) : <EmptyState title="No conversations yet" body="Private parent and coach threads will appear here." action="Start message" onAction={() => onPage('messages')} />}
           </div>
         </div>
       </section>
@@ -614,7 +637,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
     } catch {
       setCopyStatus(`Copy blocked. Share this link with ${player.parent_name || 'the parent'}: ${inviteLink}`)
     }
-    window.location.href = `mailto:${encodeURIComponent(player.parent_email || '')}?subject=${encodeURIComponent(`Join ${team.name} on TeamSync`)}&body=${encodeURIComponent(inviteText)}`
+    window.location.assign(`mailto:${encodeURIComponent(player.parent_email || '')}?subject=${encodeURIComponent(`Join ${team.name} on TeamSync`)}&body=${encodeURIComponent(inviteText)}`)
   }
 
   return (
@@ -622,7 +645,13 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
       <PageHeader title="Roster" subtitle={`${data.roster.length} players on the team`} action={editable && '+ Add Player'} onAction={() => setShowForm(!showForm)} />
       {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {copyStatus && <div className="notice">{copyStatus}</div>}
-      <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕ Search by name or jersey number..." />
+      <section className="toolbar">
+        <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or jersey number" />
+        <div className="toolbar-meta">
+          <strong>{roster.filter(isPitcher).length}</strong>
+          <span>Pitchers tagged</span>
+        </div>
+      </section>
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
           <input placeholder="Player name" value={form.player_name} onChange={(e) => setForm({ ...form, player_name: e.target.value })} required />
@@ -778,6 +807,16 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
       <section className="two-panels">
         <MetricCard label="Eligible to pitch" value={availability.eligible.length} tone="green" />
         <MetricCard label="Need rest" value={availability.resting.length} tone="red" />
+      </section>
+      <section className="pitch-board">
+        <div>
+          <SectionBar title="Pitcher Decisions" />
+          <div className="pitch-grid">
+            {availability.eligible.map((row) => <PitchDecisionCard key={row.player.id} row={row} status="eligible" />)}
+            {availability.resting.map((row) => <PitchDecisionCard key={row.player.id} row={row} status="resting" />)}
+          </div>
+          {!availability.eligible.length && !availability.resting.length && <EmptyState title="No pitchers available yet" body="Tag players as Pitcher on the roster, then log pitch counts after games." />}
+        </div>
       </section>
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -1384,7 +1423,7 @@ function FollowerInvitePanel({ claimedPlayers, team }) {
   const body = `Follow ${team?.name || 'our team'} on TeamSync for schedules and team broadcasts.\n\n${inviteLink}\n\nTeam code: ${team?.join_code || ''}\nPlayers: ${claimedPlayers.map((player) => player.player_name).join(', ')}`
 
   function sendInvite() {
-    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Follow ${team?.name || 'our team'} on TeamSync`)}&body=${encodeURIComponent(body)}`
+    window.location.assign(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Follow ${team?.name || 'our team'} on TeamSync`)}&body=${encodeURIComponent(body)}`)
   }
 
   return (
@@ -1508,6 +1547,27 @@ function PitchStatusRow({ row }) {
       <span className="number">#{row.player.jersey_number || '-'}</span>
       <div><strong>{row.player.player_name}</strong><p>{row.last.pitches} pitches · {formatShortDate(row.last.pitched_on)} {row.last.opponent ? `· ${row.last.opponent}` : ''}</p></div>
       <p className="resting">Resting until {formatShortDate(row.availableOn)}</p>
+    </article>
+  )
+}
+
+function PitchDecisionCard({ row, status }) {
+  const last = row.last
+  const isResting = status === 'resting'
+  const restLabel = isResting ? `Rest until ${formatShortDate(row.availableOn)}` : 'Available today'
+
+  return (
+    <article className={`pitch-card ${isResting ? 'rest' : 'ready'}`}>
+      <div className="pitch-card-top">
+        <span className="number">#{row.player.jersey_number || '-'}</span>
+        <Badge label={isResting ? 'Needs Rest' : 'Eligible'} />
+      </div>
+      <div>
+        <h3>{row.player.player_name}</h3>
+        <p>{last ? `${last.pitches} pitches on ${formatShortDate(last.pitched_on)}` : 'No recent pitch count'}</p>
+      </div>
+      <strong>{restLabel}</strong>
+      <small>{last?.opponent || 'No opponent logged'}</small>
     </article>
   )
 }
