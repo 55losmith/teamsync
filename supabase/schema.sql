@@ -516,7 +516,11 @@ drop policy if exists "Team members can create conversations" on public.conversa
 create policy "Team members can create conversations"
 on public.conversations for insert
 to authenticated
-with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+with check (
+  team_id = public.current_team_id()
+  and created_by = auth.uid()
+  and public.current_role() in ('coach', 'parent')
+);
 
 drop policy if exists "Team members can update conversations" on public.conversations;
 create policy "Team members can update conversations"

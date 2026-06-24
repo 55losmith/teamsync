@@ -292,7 +292,7 @@ function MainPage(props) {
     schedule: <SchedulePage {...pageProps} editable={isCoach} />,
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
     dues: <DuesPage {...pageProps} editable={isCoach} />,
-    messages: <MessagesPage {...pageProps} editable={isCoach} />,
+    messages: <MessagesPage {...pageProps} editable={isCoach || props.profile.role === 'parent'} />,
     settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
   return pages[props.activePage] || pages.dashboard
@@ -349,7 +349,7 @@ function AuthScreen() {
         <div className="auth-copy">
           <p className="eyebrow">Travel baseball operations</p>
           <h1>Run the season without the group-chat chaos.</h1>
-          <p className="muted">Coach and parent portals for all things travel baseball.</p>
+          <p className="muted">Coach and parent portals for roster, schedule, dues, broadcasts, and 9U pitch-count rest tracking.</p>
         </div>
         <form className="panel form" onSubmit={submit}>
           <div className="tabs" role="tablist" aria-label="Auth mode">
@@ -987,16 +987,16 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
 
   return (
     <div className="page-stack">
-      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && '+ New Message'} onAction={() => setShowForm(!showForm)} />
+      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
       <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
-      {showForm && mode === 'broadcast' && editable && (
+      {showForm && mode === 'broadcast' && profile.role === 'coach' && (
         <form className="panel form" onSubmit={submitBroadcast}>
           <input placeholder="Broadcast title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <textarea placeholder="Message to the team" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} required />
           <button className="primary" type="submit">Send Broadcast</button>
         </form>
       )}
-      {showForm && mode === 'conversation' && (
+      {showForm && mode === 'conversation' && editable && (
         <form className="panel form grid-form" onSubmit={submitConversation}>
           <input placeholder="Subject" value={conversationForm.subject} onChange={(e) => setConversationForm({ ...conversationForm, subject: e.target.value })} required />
           <select value={conversationForm.recipient_key} onChange={(e) => setConversationForm({ ...conversationForm, recipient_key: e.target.value })}>
