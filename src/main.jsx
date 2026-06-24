@@ -509,6 +509,8 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const recentBroadcast = data.announcements[0]
   const actionCounts = getActionCounts(data)
   const hasActions = actionCounts.unreadMessages > 0 || actionCounts.openDues > 0
+  const dueTotals = getTotals(data.dues)
+  const latestConversation = data.conversations[0]
 
   return (
     <div className="page-stack dashboard-page">
@@ -532,6 +534,60 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
         </section>
       )}
+      {(isParent || isFollower) && (
+        <section className="family-dashboard">
+          <section className="family-hero">
+            <p>{nextEvent ? 'Next Up' : 'Schedule'}</p>
+            <h2>{nextEvent ? nextEvent.title : 'No upcoming events'}</h2>
+            <div>
+              <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Your team schedule will appear here.'}</span>
+              {nextEvent?.location && <span>{nextEvent.location}</span>}
+            </div>
+            <footer>
+              {nextEvent && <Badge label={nextEvent.event_type} />}
+              <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
+            </footer>
+          </section>
+          <div className="family-side">
+            {isParent && (
+              <article className="family-card">
+                <span>My Player{claimedPlayers.length === 1 ? '' : 's'}</span>
+                <strong>{claimedPlayers.length ? claimedPlayers.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(', ') : 'Not claimed yet'}</strong>
+                <button type="button" onClick={() => onPage('account')}>{claimedPlayers.length ? 'Manage' : 'Claim Player'}</button>
+              </article>
+            )}
+            {isParent && (
+              <article className={`family-card ${actionCounts.openDues ? 'needs-action' : ''}`}>
+                <span>My Balance</span>
+                <strong>{money(dueTotals.balance)}</strong>
+                <button type="button" onClick={() => onPage('dues')}>View Finances</button>
+              </article>
+            )}
+            <article className={`family-card ${actionCounts.unreadMessages ? 'needs-action' : ''}`}>
+              <span>Messages</span>
+              <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No updates yet'}</strong>
+              <button type="button" onClick={() => onPage('messages')}>Open Messages</button>
+            </article>
+          </div>
+          <div className="family-dashboard-grid">
+            <div className="dashboard-panel">
+              <SectionBar title="Upcoming" action="View all" onAction={() => onPage('schedule')} />
+              <div className="panel compact-list">
+                {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
+                {!upcoming.length && <EmptyState title="No events yet" body="Games, practices, and tournaments will appear here once a coach adds them." />}
+              </div>
+            </div>
+            <div className="dashboard-panel">
+              <SectionBar title="Latest Broadcast" action="Messages" onAction={() => onPage('messages')} />
+              <div className="panel dashboard-message-list">
+                {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team announcements will appear here." />}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+      {(isParent || isFollower) ? null : (
+        <>
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -584,6 +640,8 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
         </div>
       </section>
+        </>
+      )}
     </div>
   )
 }
