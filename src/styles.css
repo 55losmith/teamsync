@@ -1896,6 +1896,14 @@ p {
   min-width: 0;
 }
 
+.contact-chip span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
 .contact-chip p {
   overflow-wrap: anywhere;
 }
