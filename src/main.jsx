@@ -548,6 +548,21 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
             </footer>
           </section>
+          <div className="family-dashboard-grid">
+            <div className="dashboard-panel">
+              <SectionBar title="Upcoming" action="View all" onAction={() => onPage('schedule')} />
+              <div className="panel compact-list">
+                {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
+                {!upcoming.length && <EmptyState title="No events yet" body="Games, practices, and tournaments will appear here once a coach adds them." />}
+              </div>
+            </div>
+            <div className="dashboard-panel">
+              <SectionBar title="Latest Broadcast" action="Messages" onAction={() => onPage('messages')} />
+              <div className="panel dashboard-message-list">
+                {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team announcements will appear here." />}
+              </div>
+            </div>
+          </div>
           <div className="family-side">
             {isParent && (
               <article className="family-card">
@@ -568,21 +583,6 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No updates yet'}</strong>
               <button type="button" onClick={() => onPage('messages')}>Open Messages</button>
             </article>
-          </div>
-          <div className="family-dashboard-grid">
-            <div className="dashboard-panel">
-              <SectionBar title="Upcoming" action="View all" onAction={() => onPage('schedule')} />
-              <div className="panel compact-list">
-                {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
-                {!upcoming.length && <EmptyState title="No events yet" body="Games, practices, and tournaments will appear here once a coach adds them." />}
-              </div>
-            </div>
-            <div className="dashboard-panel">
-              <SectionBar title="Latest Broadcast" action="Messages" onAction={() => onPage('messages')} />
-              <div className="panel dashboard-message-list">
-                {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team announcements will appear here." />}
-              </div>
-            </div>
           </div>
         </section>
       )}

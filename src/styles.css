@@ -1023,6 +1023,8 @@ p {
 }
 
 .family-side {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   display: grid;
   gap: 12px;
 }
@@ -1065,9 +1067,9 @@ p {
 }
 
 .family-dashboard-grid {
-  grid-column: 1 / -1;
+  grid-column: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
