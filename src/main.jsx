@@ -808,20 +808,44 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
 function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const [filter, setFilter] = useState('all')
   const [form, setForm] = useState(emptyForms.due)
+  const [monthDate, setMonthDate] = useState(new Date(today))
   const totals = getTotals(data.dues)
-  const dues = data.dues.filter((due) => filter === 'all' || due.status === filter || due.due_type === filter)
-  const percent = totals.amount ? Math.round((totals.paid / totals.amount) * 100) : 0
+  const monthKey = getMonthKey(monthDate)
+  const monthDues = data.dues.filter((due) => getMonthKey(due.due_date || due.created_at) === monthKey)
+  const monthTotals = getTotals(monthDues)
+  const monthlyTotals = getTotals(monthDues.filter((due) => due.due_type === 'monthly'))
+  const tournamentTotals = getTotals(monthDues.filter((due) => due.due_type === 'tournament'))
+  const dues = monthDues.filter((due) => filter === 'all' || due.status === filter || due.due_type === filter)
+  const percent = monthTotals.amount ? Math.round((monthTotals.paid / monthTotals.amount) * 100) : 0
+  const unpaidCount = monthDues.filter((due) => due.status === 'unpaid' || due.status === 'partial').length
 
   async function submit(event) {
     event.preventDefault()
-    await saveRow(
-      'dues',
-      { ...form, team_id: team.id, roster_member_id: form.roster_member_id || null, amount: Number(form.amount || 0), paid_amount: Number(form.paid_amount || 0), waived_amount: Number(form.waived_amount || 0), due_date: form.due_date || null },
-      emptyForms.due,
-      setForm,
-      onRefresh,
-      setMessage,
-    )
+    setMessage('')
+    const baseDue = {
+      ...form,
+      team_id: team.id,
+      amount: Number(form.amount || 0),
+      paid_amount: Number(form.paid_amount || 0),
+      waived_amount: Number(form.waived_amount || 0),
+      due_date: form.due_date || null,
+    }
+    const payload = form.roster_member_id
+      ? [{ ...baseDue, roster_member_id: form.roster_member_id }]
+      : data.roster.map((player) => ({ ...baseDue, roster_member_id: player.id }))
+
+    if (!payload.length) {
+      setMessage('Add roster players before assigning team dues.')
+      return
+    }
+
+    const { error } = await supabase.from('dues').insert(payload)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setForm(emptyForms.due)
+    onRefresh()
   }
 
   async function markPaid(due) {
@@ -842,12 +866,42 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     else onRefresh()
   }
 
+  async function markUnpaid(due) {
+    setMessage('')
+    const { error } = await supabase
+      .from('dues')
+      .update({ status: 'unpaid', paid_amount: 0, waived_amount: 0 })
+      .eq('id', due.id)
+
+    if (error) setMessage(error.message)
+    else onRefresh()
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader title="Dues & Payments" subtitle={`$${totals.paid.toFixed(0)} collected · $${totals.balance.toFixed(0)} outstanding · $${totals.waived.toFixed(0)} waived`} />
-      <section className="panel">
-        <div className="split"><p>Overall Collection</p><strong>{percent}%</strong></div>
+      <PageHeader title="Dues & Payments" subtitle={`Season: ${money(totals.paid)} collected · ${money(totals.balance)} outstanding · ${money(totals.waived)} waived`} />
+      <section className="month-switcher panel">
+        <button type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))}>‹</button>
+        <div>
+          <strong>{formatMonth(monthDate)}</strong>
+          <p>{monthDues.length} dues records · {unpaidCount} need attention</p>
+        </div>
+        <button type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))}>›</button>
+      </section>
+      <section className="dues-summary">
+        <MetricCard label="Collected" value={money(monthTotals.paid)} tone="green" />
+        <MetricCard label="Outstanding" value={money(monthTotals.balance)} tone="red" />
+        <MetricCard label="Waived" value={money(monthTotals.waived)} tone="neutral" />
+        <MetricCard label="Collection Rate" value={`${percent}%`} tone="neutral" />
+      </section>
+      <section className="panel dues-progress">
+        <div className="split"><p>{formatMonth(monthDate)} Collection</p><strong>{percent}%</strong></div>
         <div className="progress"><span style={{ width: `${percent}%` }} /></div>
+        <div className="dues-breakdown">
+          <div><span>Monthly Dues</span><strong>{money(monthlyTotals.paid)} / {money(monthlyTotals.amount)}</strong></div>
+          <div><span>Tournament Fees</span><strong>{money(tournamentTotals.paid)} / {money(tournamentTotals.amount)}</strong></div>
+          <div><span>Team Deficit</span><strong>{money(monthTotals.balance)}</strong></div>
+        </div>
       </section>
       {editable && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -870,12 +924,13 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             <option value="waived">Waived</option>
           </select>
           <button className="primary" type="submit">Assign Dues</button>
+          {!form.roster_member_id && <p className="form-help">Whole team creates one due record for each roster player so every family can see their own balance.</p>}
         </form>
       )}
       <Segmented value={filter} onChange={setFilter} options={[['all', 'All'], ['monthly', 'Monthly'], ['tournament', 'Tournament'], ['unpaid', 'Unpaid'], ['paid', 'Paid'], ['waived', 'Waived']]} />
       <section className="panel rows">
-        {dues.map((due) => <DueRow due={due} editable={editable} key={due.id} onPaid={markPaid} onWaive={waiveDue} />)}
-        {!dues.length && <EmptyState title="No dues in this view" body={editable ? 'Assign monthly dues or tournament fees to the whole team or individual players.' : 'Once you claim your player, only dues assigned to that player will appear here.'} />}
+        {dues.map((due) => <DueRow due={due} editable={editable} key={due.id} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
+        {!dues.length && <EmptyState title="No dues in this month" body={editable ? 'Assign monthly dues or tournament fees to the whole team or individual players.' : 'Once you claim your player, only dues assigned to that player will appear here.'} />}
       </section>
     </div>
   )
@@ -1393,16 +1448,30 @@ function PitchLogRow({ log }) {
   )
 }
 
-function DueRow({ due, editable, onPaid, onWaive }) {
+function DueRow({ due, editable, onPaid, onUnpaid, onWaive }) {
   const owed = Math.max(0, Number(due.amount || 0) - Number(due.paid_amount || 0) - Number(due.waived_amount || 0))
+  const paid = Number(due.paid_amount || 0)
+  const waived = Number(due.waived_amount || 0)
   return (
-    <article className="small-row">
+    <article className={`due-row status-${due.status}`}>
       <span className="money">$</span>
-      <div><strong>{due.roster_members?.player_name || due.title}</strong><p>{due.title} · {due.due_type || 'monthly'} · Due {due.due_date || 'TBD'}</p></div>
-      <strong>${owed.toFixed(0)}</strong>
+      <div className="due-main">
+        <strong>{due.roster_members?.player_name || due.title}</strong>
+        <p>{due.title} · {due.due_type || 'monthly'} · Due {due.due_date || 'TBD'}</p>
+        <small>{money(paid)} paid · {money(waived)} waived</small>
+      </div>
+      <div className="due-balance">
+        <span>Balance</span>
+        <strong>{money(owed)}</strong>
+      </div>
       <Badge label={due.status} />
-      {editable && due.status !== 'paid' && <button type="button" onClick={() => onPaid(due)}>Mark Paid</button>}
-      {editable && due.status !== 'waived' && <button type="button" onClick={() => onWaive(due)}>Waive</button>}
+      {editable && (
+        <div className="due-actions">
+          {due.status !== 'paid' && <button type="button" onClick={() => onPaid(due)}>Paid</button>}
+          {due.status !== 'waived' && <button type="button" onClick={() => onWaive(due)}>Waive</button>}
+          {due.status !== 'unpaid' && <button type="button" onClick={() => onUnpaid(due)}>Unpaid</button>}
+        </div>
+      )}
     </article>
   )
 }
@@ -1587,6 +1656,26 @@ function getTotals(dues) {
     total.balance = Math.max(0, total.amount - total.paid - total.waived)
     return total
   }, { amount: 0, paid: 0, waived: 0, balance: 0 })
+}
+
+function addMonths(value, count) {
+  const date = new Date(value)
+  date.setMonth(date.getMonth() + count)
+  return date
+}
+
+function getMonthKey(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatMonth(value) {
+  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(value))
+}
+
+function money(value) {
+  return `$${Number(value || 0).toFixed(0)}`
 }
 
 function getPitchAvailability(roster, pitchCounts, team) {

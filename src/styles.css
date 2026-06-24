@@ -662,10 +662,76 @@ p {
 }
 
 .dashboard-columns,
-.two-panels {
+.two-panels,
+.dues-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+}
+
+.dues-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.month-switcher {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.month-switcher button {
+  width: 42px;
+  min-height: 42px;
+  border: 1px solid #d9dee8;
+  background: #ffffff;
+  color: #526580;
+  font-size: 1.4rem;
+}
+
+.month-switcher strong {
+  display: block;
+  font-size: 1.08rem;
+}
+
+.month-switcher p {
+  margin-top: 3px;
+  color: #526580;
+  font-size: 0.88rem;
+}
+
+.dues-progress {
+  display: grid;
+  gap: 14px;
+}
+
+.dues-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dues-breakdown div {
+  border-radius: 8px;
+  background: #f6f8fb;
+  padding: 12px;
+}
+
+.dues-breakdown span,
+.due-balance span {
+  display: block;
+  color: #526580;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dues-breakdown strong {
+  display: block;
+  margin-top: 5px;
 }
 
 .section-bar,
@@ -707,7 +773,8 @@ p {
 
 .small-row,
 .player-row,
-.player-edit-row {
+.player-edit-row,
+.due-row {
   min-height: 72px;
   padding: 16px 20px;
   border-bottom: 1px solid #edf1f6;
@@ -715,8 +782,55 @@ p {
 
 .small-row:last-child,
 .player-row:last-child,
-.player-edit-row:last-child {
+.player-edit-row:last-child,
+.due-row:last-child {
   border-bottom: 0;
+}
+
+.due-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) minmax(92px, auto) auto auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.due-main small {
+  display: block;
+  margin-top: 5px;
+  color: #71809a;
+  font-size: 0.82rem;
+}
+
+.due-balance {
+  text-align: right;
+}
+
+.due-balance strong {
+  display: block;
+  margin-top: 3px;
+}
+
+.due-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.due-actions button {
+  min-height: 32px;
+  background: #eef2f7;
+  color: #334155;
+  padding: 0 12px;
+}
+
+.status-unpaid .due-balance strong,
+.status-partial .due-balance strong {
+  color: #dc2626;
+}
+
+.status-paid .due-balance strong {
+  color: #15803d;
 }
 
 .player-edit-row {
@@ -1048,6 +1162,8 @@ p {
 
   .stats,
   .dashboard-columns,
+  .dues-summary,
+  .dues-breakdown,
   .member-columns,
   .two-panels,
   .auth-grid,
@@ -1060,10 +1176,24 @@ p {
 
   .page-header,
   .next-up,
+  .due-row,
   .player-row,
   .small-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .due-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .due-balance {
+    text-align: left;
+  }
+
+  .due-actions {
+    justify-content: flex-start;
   }
 
   .player-edit-row {
