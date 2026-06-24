@@ -1001,6 +1001,9 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const pitcherRoster = data.roster.filter(isPitcher)
   const pitchRows = [...availability.resting, ...availability.eligible].sort((a, b) => a.player.player_name.localeCompare(b.player.player_name))
+  const selectedPitcher = pitcherRoster.find((player) => player.id === form.roster_member_id)
+  const previewRestDays = restDays(form.pitches)
+  const previewEligibleDate = form.pitched_on ? addDays(form.pitched_on, previewRestDays) : null
 
   async function submit(event) {
     event.preventDefault()
@@ -1015,12 +1018,34 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
     setShowForm(false)
   }
 
+  function openPitchForm(playerId = '') {
+    setForm({ ...emptyForms.pitch, roster_member_id: playerId, pitched_on: today })
+    setShowForm(true)
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader title="Pitch Counts" subtitle="Pitch Smart compliance and rest-day tracking (9U)" action={editable && '+ Log Pitches'} onAction={() => setShowForm(!showForm)} />
+      <PageHeader title="Pitch Counts" subtitle="Pitch Smart compliance and rest-day tracking (9U)" action={editable && '+ Log Pitches'} onAction={() => openPitchForm()} />
       <section className="compliance-note">
         <strong>ⓘ USA Baseball Pitch Smart — Ages 9-10</strong>
         <p>Daily max: {team?.daily_pitch_limit || 75} pitches. Required rest: 1-20 pitches = 0 days · 21-35 = 1 day · 36-50 = 2 days · 51-65 = 3 days · 66+ = 4 days.</p>
+      </section>
+      <section className="pitch-overview">
+        <article className="metric green">
+          <span>Eligible Today</span>
+          <p>{availability.eligible.length}</p>
+          <strong>{availability.eligible.length ? availability.eligible.map((row) => row.player.player_name).join(', ') : 'No Pitchers Ready'}</strong>
+        </article>
+        <article className="metric red">
+          <span>Need Rest</span>
+          <p>{availability.resting.length}</p>
+          <strong>{availability.resting.length ? availability.resting.map((row) => row.player.player_name).join(', ') : 'No One Resting'}</strong>
+        </article>
+        <article className="metric">
+          <span>Tagged Pitchers</span>
+          <p>{pitcherRoster.length}</p>
+          <strong>{pitcherRoster.length ? `${pitcherRoster.length} on roster` : 'Tag pitchers on roster'}</strong>
+        </article>
       </section>
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -1031,6 +1056,11 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
           <input type="number" min="0" placeholder="Pitches" value={form.pitches} onChange={(e) => setForm({ ...form, pitches: e.target.value })} required />
           <input type="date" value={form.pitched_on} onChange={(e) => setForm({ ...form, pitched_on: e.target.value })} />
           <input placeholder="Game/opponent" value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
+          <div className="pitch-log-preview">
+            <span>Rest Preview</span>
+            <strong>{form.pitches ? `${previewRestDays} Rest Day${previewRestDays === 1 ? '' : 's'}` : 'Enter Pitch Count'}</strong>
+            <p>{selectedPitcher ? `${selectedPitcher.player_name} ${previewEligibleDate ? `eligible ${previewRestDays ? formatShortDate(previewEligibleDate) : 'today'}` : ''}` : 'Choose a pitcher to preview eligibility.'}</p>
+          </div>
           <button className="primary" type="submit">Log Pitch Count</button>
         </form>
       )}
@@ -1053,7 +1083,7 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
             </thead>
             <tbody>
               {pitchRows.map((row) => {
-                const resting = row.status === 'resting'
+                const resting = row.resting
                 const logs = data.pitchCounts.filter((log) => log.roster_member_id === row.player.id)
                 const seasonPitches = logs.reduce((sum, log) => sum + Number(log.pitches || 0), 0)
                 return (
@@ -1065,7 +1095,10 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
                     <td>{row.last ? `${restDays(row.last.pitches)}d` : '0d'}</td>
                     <td>{resting ? formatShortDate(row.availableOn) : 'Today'}</td>
                     <td>{seasonPitches}</td>
-                    <td>{logs.length}</td>
+                    <td>
+                      <span>{logs.length}</span>
+                      {editable && <button className="table-action" type="button" onClick={() => openPitchForm(row.player.id)}>Log</button>}
+                    </td>
                   </tr>
                 )
               })}

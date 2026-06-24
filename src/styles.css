@@ -2258,6 +2258,50 @@ p {
   padding: 0 14px;
 }
 
+.pitch-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pitch-overview .metric {
+  align-items: start;
+}
+
+.pitch-overview .metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted-strong);
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.pitch-log-preview {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-tint);
+  padding: 12px 14px;
+}
+
+.pitch-log-preview span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pitch-log-preview strong {
+  color: var(--foreground);
+}
+
+.pitch-log-preview p {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .compliance-note {
   display: grid;
   gap: 8px;
@@ -2329,6 +2373,15 @@ p {
   color: var(--muted);
   font-weight: 600;
   margin-right: 6px;
+}
+
+.table-action {
+  min-height: 28px;
+  margin-left: 10px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  padding: 0 10px;
 }
 
 .progress {
@@ -2673,6 +2726,10 @@ p {
 
   .dashboard-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pitch-overview {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-hero {
