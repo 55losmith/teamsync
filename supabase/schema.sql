@@ -517,9 +517,14 @@ create policy "Team members can create conversations"
 on public.conversations for insert
 to authenticated
 with check (
-  team_id = public.current_team_id()
-  and created_by = auth.uid()
-  and public.current_role() in ('coach', 'parent')
+  created_by = auth.uid()
+  and exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.team_id = conversations.team_id
+      and p.role in ('coach', 'parent')
+  )
 );
 
 drop policy if exists "Team members can update conversations" on public.conversations;
@@ -540,9 +545,21 @@ create policy "Team members can create conversation messages"
 on public.conversation_messages for insert
 to authenticated
 with check (
-  team_id = public.current_team_id()
-  and sender_id = auth.uid()
-  and public.can_read_conversation(conversation_id)
+  sender_id = auth.uid()
+  and exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.team_id = conversation_messages.team_id
+      and p.role in ('coach', 'parent')
+  )
+  and exists (
+    select 1
+    from public.conversations c
+    where c.id = conversation_messages.conversation_id
+      and c.team_id = conversation_messages.team_id
+      and public.can_read_conversation(c.id)
+  )
 );
 
 drop policy if exists "Users can read their notifications" on public.notifications;
