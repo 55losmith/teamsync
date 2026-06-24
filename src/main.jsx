@@ -508,9 +508,25 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
   const recentBroadcast = data.announcements[0]
   const actionCounts = getActionCounts(data)
-  const hasActions = actionCounts.unreadMessages > 0 || actionCounts.openDues > 0
+  const financeDismissKey = `teamsync:finance-alert:${profile.id}:${team?.id}:${actionCounts.openDues}:${data.dues.filter(needsDueAction).map((due) => `${due.id}:${due.status}:${due.paid_amount}:${due.waived_amount}`).join('|')}`
+  const broadcastDismissKey = recentBroadcast ? `teamsync:broadcast-alert:${profile.id}:${recentBroadcast.id}` : ''
+  const [dismissedFinanceKey, setDismissedFinanceKey] = useState(() => localStorage.getItem('teamsync:dismissed-finance-alert') || '')
+  const [dismissedBroadcastKey, setDismissedBroadcastKey] = useState(() => localStorage.getItem('teamsync:dismissed-broadcast-alert') || '')
+  const showFinanceAction = actionCounts.openDues > 0 && (!isParent && !isFollower ? dismissedFinanceKey !== financeDismissKey : true)
+  const hasActions = actionCounts.unreadMessages > 0 || showFinanceAction
+  const showBroadcastAlert = recentBroadcast && isRecentBroadcast(recentBroadcast) && dismissedBroadcastKey !== broadcastDismissKey
   const dueTotals = getTotals(data.dues)
   const latestConversation = data.conversations[0]
+
+  function dismissFinanceAction() {
+    localStorage.setItem('teamsync:dismissed-finance-alert', financeDismissKey)
+    setDismissedFinanceKey(financeDismissKey)
+  }
+
+  function dismissBroadcastAlert() {
+    localStorage.setItem('teamsync:dismissed-broadcast-alert', broadcastDismissKey)
+    setDismissedBroadcastKey(broadcastDismissKey)
+  }
 
   return (
     <div className="page-stack dashboard-page">
@@ -524,13 +540,31 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               <strong>Action Needed</strong>
               <p>{[
                 actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} unread message${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
-                actionCounts.openDues > 0 ? `${actionCounts.openDues} open due${actionCounts.openDues === 1 ? '' : 's'}` : '',
+                showFinanceAction ? `${actionCounts.openDues} open due${actionCounts.openDues === 1 ? '' : 's'}` : '',
               ].filter(Boolean).join(' · ')}</p>
             </div>
           </div>
           <div>
             {actionCounts.unreadMessages > 0 && <button type="button" onClick={() => onPage('messages')}>Open Messages</button>}
-            {actionCounts.openDues > 0 && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
+            {showFinanceAction && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
+            {!isParent && !isFollower && showFinanceAction && <button className="ghost" type="button" onClick={dismissFinanceAction}>Dismiss Finance</button>}
+          </div>
+        </section>
+      )}
+      {showBroadcastAlert && (
+        <section className="broadcast-alert">
+          <div>
+            <span className="broadcast">⌁</span>
+            <div>
+              <small>Team Broadcast</small>
+              <strong>{recentBroadcast.title}</strong>
+              <p>{recentBroadcast.body}</p>
+              <span>{formatDate(recentBroadcast.created_at)}</span>
+            </div>
+          </div>
+          <div>
+            <button type="button" onClick={() => onPage('messages')}>Open</button>
+            <button className="ghost" type="button" onClick={dismissBroadcastAlert}>Dismiss</button>
           </div>
         </section>
       )}
@@ -603,7 +637,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <div className="dashboard-summary-stack">
           <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
           <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : `${data.announcements.length + data.conversations.length} total`} onClick={() => onPage('messages')} />
+          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : 'No new'} onClick={() => onPage('messages')} />
         </div>
         <section className="today-card">
           <p>{nextEvent ? 'Today' : 'Next Up'}</p>
@@ -1935,6 +1969,13 @@ function getActionCounts(data) {
 function needsDueAction(due) {
   const balance = Number(due.amount || 0) - Number(due.paid_amount || 0) - Number(due.waived_amount || 0)
   return balance > 0 && ['unpaid', 'partial'].includes(due.status)
+}
+
+function isRecentBroadcast(broadcast) {
+  if (!broadcast?.created_at) return false
+  const broadcastDate = new Date(broadcast.created_at)
+  const sevenDays = 7 * 24 * 60 * 60 * 1000
+  return Date.now() - broadcastDate.getTime() <= sevenDays
 }
 
 function getParentScopedData(data, profile) {
