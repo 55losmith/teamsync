@@ -520,10 +520,10 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         </div>
       </section>
       <section className="dashboard-metrics">
-        <Stat icon="♙" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
-        <Stat icon="▣" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-        <Stat icon="$" label={isParent ? 'My Dues' : 'Team Deficit'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
-        <Stat icon="⌁" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
+        <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
+        <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
+        <Stat icon="dues" label={isParent ? 'My Dues' : 'Team Deficit'} value={`$${totals.balance.toFixed(0)}`} onClick={() => onPage('dues')} />
+        <Stat icon="pitch" label="Pitchers Resting" value={`${availability.resting.length} players`} onClick={() => onPage('pitch')} />
       </section>
       <section className="dashboard-workspace">
         <div className="dashboard-panel">
@@ -1362,10 +1362,12 @@ function PageHeader({ action, onAction, subtitle, title }) {
 function Stat({ icon, label, onClick, value }) {
   return (
     <button className="stat-card" type="button" onClick={onClick}>
-      <span>{icon}</span>
-      <strong>{value}</strong>
-      <small>{label}</small>
-      <b>›</b>
+      <span className={`stat-icon stat-${icon}`} aria-hidden="true" />
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+      </div>
+      <b aria-hidden="true">›</b>
     </button>
   )
 }
