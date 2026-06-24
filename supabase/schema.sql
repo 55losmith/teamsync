@@ -23,11 +23,14 @@ alter table public.teams add column if not exists daily_pitch_limit integer not 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
-  role text not null check (role in ('coach', 'parent')),
+  role text not null check (role in ('coach', 'parent', 'follower')),
   team_id uuid references public.teams(id) on delete set null,
   email text,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('coach', 'parent', 'follower'));
 
 create table if not exists public.roster_members (
   id uuid primary key default gen_random_uuid(),
@@ -179,7 +182,10 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
-    coalesce(new.raw_user_meta_data->>'role', 'parent'),
+    case
+      when new.raw_user_meta_data->>'role' in ('coach', 'parent', 'follower') then new.raw_user_meta_data->>'role'
+      else 'parent'
+    end,
     new.email
   )
   on conflict (id) do nothing;
@@ -345,6 +351,10 @@ begin
     return true;
   end if;
 
+  if public.current_role() = 'follower' then
+    return false;
+  end if;
+
   return v_conversation.created_by = auth.uid()
     or v_conversation.recipient_type in ('all_team', 'all_parents')
     or v_conversation.recipient_profile_id = auth.uid()
@@ -400,7 +410,7 @@ drop policy if exists "Team members can read roster" on public.roster_members;
 create policy "Team members can read roster"
 on public.roster_members for select
 to authenticated
-using (team_id = public.current_team_id());
+using (team_id = public.current_team_id() and public.current_role() in ('coach', 'parent'));
 
 drop policy if exists "Coaches can manage roster" on public.roster_members;
 create policy "Coaches can manage roster"

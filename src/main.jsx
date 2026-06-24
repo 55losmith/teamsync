@@ -76,7 +76,7 @@ function App() {
       const fallbackProfile = {
         id: session.user.id,
         full_name: metadata.full_name || session.user.email?.split('@')[0] || '',
-        role: metadata.role === 'coach' ? 'coach' : 'parent',
+        role: ['coach', 'parent', 'follower'].includes(metadata.role) ? metadata.role : 'parent',
         email: session.user.email,
       }
 
@@ -232,7 +232,11 @@ function PublicShell({ children, profile, onSignOut }) {
 
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
   const isCoach = profile.role === 'coach'
-  const visibleNav = isCoach ? navItems : navItems.filter(([key]) => key !== 'settings')
+  const visibleNav = isCoach
+    ? navItems
+    : profile.role === 'follower'
+      ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages'].includes(key))
+      : navItems.filter(([key]) => key !== 'settings')
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
 
   return (
@@ -280,7 +284,7 @@ function Brand({ team }) {
 
 function MainPage(props) {
   const isCoach = props.profile.role === 'coach'
-  const pageData = isCoach ? props.data : getParentScopedData(props.data, props.profile)
+  const pageData = isCoach ? props.data : props.profile.role === 'follower' ? getFollowerScopedData(props.data) : getParentScopedData(props.data, props.profile)
   const pageProps = { ...props, data: pageData, fullData: props.data }
   const pages = {
     dashboard: <DashboardPage {...pageProps} />,
@@ -305,7 +309,8 @@ function MissingEnv() {
 
 function AuthScreen() {
   const [mode, setMode] = useState('login')
-  const initialRole = new URLSearchParams(window.location.search).get('role') === 'parent' ? 'parent' : 'coach'
+  const roleParam = new URLSearchParams(window.location.search).get('role')
+  const initialRole = roleParam === 'parent' || roleParam === 'follower' ? roleParam : 'coach'
   const [role, setRole] = useState(initialRole)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -316,6 +321,12 @@ function AuthScreen() {
   async function submit(event) {
     event.preventDefault()
     setMessage('')
+
+    if (mode === 'reset') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+      setMessage(error ? error.message : 'Password reset link sent. Check your email.')
+      return
+    }
 
     const response = isSignup
       ? await supabase.auth.signUp({
@@ -351,12 +362,14 @@ function AuthScreen() {
               <div className="tabs compact" role="tablist" aria-label="Role">
                 <button className={role === 'coach' ? 'active' : ''} type="button" onClick={() => setRole('coach')}>Coach</button>
                 <button className={role === 'parent' ? 'active' : ''} type="button" onClick={() => setRole('parent')}>Parent</button>
+                {role === 'follower' && <button className="active" type="button">Follower</button>}
               </div>
             </>
           )}
           <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-          <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength="6" required /></label>
-          <button className="primary" type="submit">{isSignup ? 'Create account' : 'Log in'}</button>
+          {mode !== 'reset' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength="6" required /></label>}
+          <button className="primary" type="submit">{mode === 'reset' ? 'Send Reset Link' : isSignup ? 'Create account' : 'Log in'}</button>
+          <button type="button" onClick={() => setMode(mode === 'reset' ? 'login' : 'reset')}>{mode === 'reset' ? 'Back to login' : 'Forgot password?'}</button>
           {message && <p className="notice">{message}</p>}
         </form>
       </section>
@@ -365,7 +378,16 @@ function AuthScreen() {
 }
 
 function TeamSetup({ profile, onDone }) {
-  return profile.role === 'coach' ? <CreateTeam onDone={onDone} /> : <JoinTeam onDone={onDone} />
+  const [mode, setMode] = useState(profile.role === 'coach' ? 'join' : 'join')
+
+  if (profile.role !== 'coach') return <JoinTeam onDone={onDone} profile={profile} />
+
+  return (
+    <section className="page-stack">
+      <Segmented value={mode} onChange={setMode} options={[['join', 'Join existing team'], ['create', 'Create new team']]} />
+      {mode === 'join' ? <JoinTeam onDone={onDone} profile={profile} /> : <CreateTeam onDone={onDone} />}
+    </section>
+  )
 }
 
 function CreateTeam({ onDone }) {
@@ -448,6 +470,7 @@ function JoinTeam({ onDone }) {
 
 function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage, team }) {
   const isParent = profile.role === 'parent'
+  const isFollower = profile.role === 'follower'
   const claimRoster = fullData?.roster || data.roster
   const claimRecords = fullData?.parentClaims || data.parentClaims || []
   const claimedPlayers = getClaimedPlayers(claimRoster, profile, claimRecords)
@@ -460,8 +483,9 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
 
   return (
     <div className="page-stack">
-      <PageHeader title={isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
+      <PageHeader title={isFollower ? 'Follower Dashboard' : isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
       {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
+      {isParent && claimedPlayers.length > 0 && <FollowerInvitePanel claimedPlayers={claimedPlayers} team={team} />}
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -568,16 +592,27 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
     onRefresh()
   }
 
+  async function deletePlayer(player) {
+    setMessage('')
+    const confirmed = window.confirm(`Remove ${player.player_name} from the roster?`)
+    if (!confirmed) return
+
+    const { error } = await supabase.from('roster_members').delete().eq('id', player.id)
+    if (error) setMessage(error.message)
+    else onRefresh()
+  }
+
   async function inviteParent(player) {
     const inviteLink = `${window.location.origin}/?role=parent&teamCode=${team.join_code}&playerId=${player.id}`
     const inviteText = `Join ${team.name} on TeamSync and claim ${player.player_name}: ${inviteLink}\nTeam code: ${team.join_code}`
 
     try {
       await navigator.clipboard.writeText(inviteText)
-      setCopyStatus(`Invite copied for ${player.player_name}`)
+      setCopyStatus(`Invite copied and email draft opened for ${player.player_name}`)
     } catch {
       setCopyStatus(`Copy blocked. Share this link with ${player.parent_name || 'the parent'}: ${inviteLink}`)
     }
+    window.location.href = `mailto:${encodeURIComponent(player.parent_email || '')}?subject=${encodeURIComponent(`Join ${team.name} on TeamSync`)}&body=${encodeURIComponent(inviteText)}`
   }
 
   return (
@@ -620,6 +655,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
             onEdit={() => startEdit(player)}
             onEditForm={setEditForm}
             onInviteParent={() => inviteParent(player)}
+            onDelete={() => deletePlayer(player)}
             onSaveEdit={saveEdit}
             player={player}
             isClaimedByCurrentParent={claimedPlayers.some((claimedPlayer) => claimedPlayer.id === player.id)}
@@ -642,7 +678,13 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
 
   async function submit(event) {
     event.preventDefault()
-    await saveRow('events', { ...form, team_id: team.id }, emptyForms.event, setForm, onRefresh, setMessage)
+    await saveRow('events', {
+      ...form,
+      team_id: team.id,
+      our_score: form.our_score === '' ? null : Number(form.our_score),
+      opponent_score: form.opponent_score === '' ? null : Number(form.opponent_score),
+      result: form.our_score === '' || form.opponent_score === '' ? '' : form.result,
+    }, emptyForms.event, setForm, onRefresh, setMessage)
     setShowForm(false)
   }
 
@@ -711,7 +753,9 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
 
 function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   const [form, setForm] = useState(emptyForms.pitch)
+  const [showForm, setShowForm] = useState(false)
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
+  const pitcherRoster = data.roster.filter(isPitcher)
 
   async function submit(event) {
     event.preventDefault()
@@ -723,20 +767,21 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
       onRefresh,
       setMessage,
     )
+    setShowForm(false)
   }
 
   return (
     <div className="page-stack">
-      <PageHeader title="Pitch Counts" subtitle={`9U Daily Limit: ${team?.daily_pitch_limit || 75} pitches`} action={editable && '+ Log Pitches'} />
+      <PageHeader title="Pitch Counts" subtitle={`9U Daily Limit: ${team?.daily_pitch_limit || 75} pitches`} action={editable && '+ Log Pitches'} onAction={() => setShowForm(!showForm)} />
       <section className="two-panels">
         <MetricCard label="Eligible to pitch" value={availability.eligible.length} tone="green" />
         <MetricCard label="Need rest" value={availability.resting.length} tone="red" />
       </section>
-      {editable && (
+      {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
           <select value={form.roster_member_id} onChange={(e) => setForm({ ...form, roster_member_id: e.target.value })} required>
             <option value="">Choose pitcher</option>
-            {data.roster.map((player) => <option key={player.id} value={player.id}>#{player.jersey_number} {player.player_name}</option>)}
+            {pitcherRoster.map((player) => <option key={player.id} value={player.id}>#{player.jersey_number} {player.player_name}</option>)}
           </select>
           <input type="number" min="0" placeholder="Pitches" value={form.pitches} onChange={(e) => setForm({ ...form, pitches: e.target.value })} required />
           <input type="date" value={form.pitched_on} onChange={(e) => setForm({ ...form, pitched_on: e.target.value })} />
@@ -744,6 +789,7 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
           <button className="primary" type="submit">Log Pitch Count</button>
         </form>
       )}
+      {editable && !pitcherRoster.length && <EmptyState title="No pitchers tagged" body="Open Roster, edit a player, and check Pitcher so they can appear in pitch count decisions." />}
       <section className="rest-note">ⓘ Rest days: 1-20 pitches no rest, 21-35 one day, 36-50 two days, 51-65 three days, 66+ four days.</section>
       <SectionBar title="Needs Rest" />
       <section className="panel rows">
@@ -835,17 +881,21 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   )
 }
 
-function MessagesPage({ data, editable, onRefresh, setMessage, team }) {
+function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) {
   const [form, setForm] = useState(emptyForms.announcement)
   const [conversationForm, setConversationForm] = useState(emptyForms.conversation)
-  const [mode, setMode] = useState('conversation')
+  const [mode, setMode] = useState(profile.role === 'follower' ? 'broadcast' : 'conversation')
   const [showForm, setShowForm] = useState(false)
+  const [selectedConversationId, setSelectedConversationId] = useState('')
+  const [replyBody, setReplyBody] = useState('')
   const recipientOptions = getRecipientOptions(data)
+  const selectedConversation = data.conversations.find((conversation) => conversation.id === selectedConversationId)
 
   async function submitBroadcast(event) {
     event.preventDefault()
     const { data: userData } = await supabase.auth.getUser()
     await saveRow('announcements', { ...form, team_id: team.id, created_by: userData.user.id }, emptyForms.announcement, setForm, onRefresh, setMessage)
+    setMessage('Broadcast sent.')
     setShowForm(false)
   }
 
@@ -913,10 +963,32 @@ function MessagesPage({ data, editable, onRefresh, setMessage, team }) {
     onRefresh()
   }
 
+  async function submitReply(event) {
+    event.preventDefault()
+    if (!selectedConversation || !replyBody.trim()) return
+    setMessage('')
+    const { data: userData } = await supabase.auth.getUser()
+    const { error } = await supabase.from('conversation_messages').insert({
+      team_id: team.id,
+      conversation_id: selectedConversation.id,
+      sender_id: userData.user.id,
+      body: replyBody.trim(),
+    })
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', selectedConversation.id)
+    setReplyBody('')
+    onRefresh()
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && '+ New Message'} onAction={() => setShowForm(!showForm)} />
-      <Segmented value={mode} onChange={setMode} options={[['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
+      <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && editable && (
         <form className="panel form" onSubmit={submitBroadcast}>
           <input placeholder="Broadcast title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -946,8 +1018,18 @@ function MessagesPage({ data, editable, onRefresh, setMessage, team }) {
       ) : (
         <>
           <SectionBar title="Conversations" count={data.conversations.length} />
+          {selectedConversation && (
+            <ConversationDetail
+              conversation={selectedConversation}
+              messages={data.conversationMessages.filter((message) => message.conversation_id === selectedConversation.id).reverse()}
+              onBack={() => setSelectedConversationId('')}
+              onReply={submitReply}
+              replyBody={replyBody}
+              setReplyBody={setReplyBody}
+            />
+          )}
           <section className="rows">
-            {data.conversations.map((conversation) => <ConversationCard conversation={conversation} key={conversation.id} messages={data.conversationMessages.filter((message) => message.conversation_id === conversation.id)} />)}
+            {!selectedConversation && data.conversations.map((conversation) => <ConversationCard conversation={conversation} key={conversation.id} messages={data.conversationMessages.filter((message) => message.conversation_id === conversation.id)} onOpen={() => setSelectedConversationId(conversation.id)} />)}
             {!data.conversations.length && <EmptyState title="No conversations yet" body="Start a normal message thread with a parent or another coach." />}
           </section>
         </>
@@ -1029,6 +1111,7 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
 function TeamMembersPanel({ data }) {
   const coaches = data.members.filter((member) => member.role === 'coach')
   const parents = data.members.filter((member) => member.role === 'parent')
+  const followers = data.members.filter((member) => member.role === 'follower')
 
   return (
     <section className="member-directory">
@@ -1038,6 +1121,7 @@ function TeamMembersPanel({ data }) {
       <div className="member-columns">
         <MemberGroup members={coaches} title="Coaches" />
         <MemberGroup members={parents} parentClaims={data.parentClaims} roster={data.roster} title="Parents" />
+        <MemberGroup members={followers} title="Followers" />
       </div>
     </section>
   )
@@ -1063,6 +1147,11 @@ function MemberRow({ member, parentClaims, roster }) {
     (member.role === 'parent' && player.parent_email?.toLowerCase() === member.email?.toLowerCase())
   ))
 
+  async function sendReset() {
+    if (!member.email) return
+    await supabase.auth.resetPasswordForEmail(member.email, { redirectTo: window.location.origin })
+  }
+
   return (
     <article className="member-row">
       <span>{initials(member.full_name || member.email)}</span>
@@ -1074,6 +1163,7 @@ function MemberRow({ member, parentClaims, roster }) {
         )}
       </div>
       <Badge label={member.role} />
+      <button type="button" onClick={sendReset}>Reset</button>
     </article>
   )
 }
@@ -1159,7 +1249,30 @@ function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMess
   )
 }
 
-function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, onCancelEdit, onEdit, onEditForm, onInviteParent, onSaveEdit, player }) {
+function FollowerInvitePanel({ claimedPlayers, team }) {
+  const [email, setEmail] = useState('')
+  const inviteLink = `${window.location.origin}/?role=follower&teamCode=${team?.join_code || ''}`
+  const body = `Follow ${team?.name || 'our team'} on TeamSync for schedules and team broadcasts.\n\n${inviteLink}\n\nTeam code: ${team?.join_code || ''}\nPlayers: ${claimedPlayers.map((player) => player.player_name).join(', ')}`
+
+  function sendInvite() {
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Follow ${team?.name || 'our team'} on TeamSync`)}&body=${encodeURIComponent(body)}`
+  }
+
+  return (
+    <section className="claim-panel">
+      <div>
+        <h2>Invite a Follower</h2>
+        <p>Grandparents and family followers can see schedules and broadcasts only. They cannot see dues or private messages.</p>
+      </div>
+      <div>
+        <input type="email" placeholder="Follower email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <button className="primary" type="button" onClick={sendInvite}>Email Invite</button>
+      </div>
+    </section>
+  )
+}
+
+function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, onCancelEdit, onDelete, onEdit, onEditForm, onInviteParent, onSaveEdit, player }) {
   const positions = splitTags(player.position)
 
   if (isEditing) {
@@ -1200,7 +1313,7 @@ function PlayerRow({ editable, editForm, isClaimedByCurrentParent, isEditing, on
         <p>{player.parent_name || 'Parent'} · {player.parent_email || 'No email'} {player.parent_phone ? `· ${player.parent_phone}` : ''}</p>
       </div>
       {isClaimedByCurrentParent && <Badge label="My player" />}
-      {editable && <div className="row-actions"><button type="button" onClick={onInviteParent}>Invite Parent</button><button type="button" onClick={onEdit}>Edit</button></div>}
+      {editable && <div className="row-actions"><button type="button" onClick={onInviteParent}>Invite Parent</button><button type="button" onClick={onEdit}>Edit</button><button type="button" onClick={onDelete}>Remove</button></div>}
     </article>
   )
 }
@@ -1307,10 +1420,10 @@ function MessageCard({ message }) {
   )
 }
 
-function ConversationCard({ conversation, messages }) {
+function ConversationCard({ conversation, messages, onOpen }) {
   const latest = messages[0]
   return (
-    <article className="message-card">
+    <article className="message-card clickable-card" onClick={onOpen}>
       <span className="broadcast">{initials(conversation.recipient_name || conversation.subject)}</span>
       <div>
         <h3>{conversation.subject} <Badge label="Conversation" /></h3>
@@ -1319,6 +1432,28 @@ function ConversationCard({ conversation, messages }) {
         <small>{formatShortDate(conversation.updated_at || conversation.created_at)}</small>
       </div>
     </article>
+  )
+}
+
+function ConversationDetail({ conversation, messages, onBack, onReply, replyBody, setReplyBody }) {
+  return (
+    <section className="panel message-thread">
+      <button type="button" onClick={onBack}>Back to conversations</button>
+      <h2>{conversation.subject}</h2>
+      <p className="muted">{conversation.recipient_name || 'Team conversation'}</p>
+      <div className="thread-messages">
+        {messages.map((message) => (
+          <article key={message.id}>
+            <p>{message.body}</p>
+            <small>{formatDate(message.created_at)}</small>
+          </article>
+        ))}
+      </div>
+      <form className="form" onSubmit={onReply}>
+        <textarea placeholder="Write a reply" value={replyBody} onChange={(event) => setReplyBody(event.target.value)} required />
+        <button className="primary fit" type="submit">Send Reply</button>
+      </form>
+    </section>
   )
 }
 
@@ -1348,6 +1483,19 @@ function getParentScopedData(data, profile) {
     dues: data.dues.filter((due) => claimedPlayerIds.has(due.roster_member_id)),
     conversations,
     conversationMessages: data.conversationMessages.filter((message) => conversationIds.has(message.conversation_id)),
+  }
+}
+
+function getFollowerScopedData(data) {
+  return {
+    ...data,
+    roster: [],
+    parentClaims: [],
+    dues: [],
+    pitchCounts: [],
+    conversations: [],
+    conversationMessages: [],
+    members: [],
   }
 }
 
@@ -1442,6 +1590,7 @@ function getTotals(dues) {
 }
 
 function getPitchAvailability(roster, pitchCounts, team) {
+  const pitchers = roster.filter(isPitcher)
   const latest = new Map()
   pitchCounts.forEach((log) => {
     if (!log.roster_member_id) return
@@ -1450,7 +1599,7 @@ function getPitchAvailability(roster, pitchCounts, team) {
   })
 
   const now = new Date()
-  const rows = roster.map((player) => {
+  const rows = pitchers.map((player) => {
     const last = latest.get(player.id)
     if (!last) return { player, last: null, resting: false }
     const availableOn = addDays(last.pitched_on, restDays(last.pitches))
@@ -1462,6 +1611,10 @@ function getPitchAvailability(roster, pitchCounts, team) {
     resting: rows.filter((row) => row.resting),
     limit: team?.daily_pitch_limit || 75,
   }
+}
+
+function isPitcher(player) {
+  return splitTags(player.position).some((position) => position.toLowerCase() === 'pitcher')
 }
 
 function restDays(pitches) {

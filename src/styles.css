@@ -388,7 +388,7 @@ p {
 
 .member-columns {
   display: grid;
-  grid-template-columns: 1fr 1.35fr;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
 }
 
@@ -419,7 +419,7 @@ p {
 .member-row {
   min-height: 74px;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
   gap: 14px;
   align-items: center;
   padding: 16px 20px;
@@ -450,6 +450,13 @@ p {
 
 .member-row small {
   margin-top: 4px;
+}
+
+.member-row button {
+  min-height: 32px;
+  background: #eef2f7;
+  color: #334155;
+  padding: 0 10px;
 }
 
 .form-row {
@@ -980,6 +987,43 @@ p {
   grid-template-columns: 46px 1fr;
   gap: 20px;
   padding: 26px 20px;
+}
+
+.clickable-card {
+  cursor: pointer;
+}
+
+.clickable-card:hover {
+  border-color: #cbd5e1;
+}
+
+.message-thread {
+  display: grid;
+  gap: 16px;
+}
+
+.message-thread > button {
+  width: fit-content;
+  background: #eef2f7;
+  color: #334155;
+  padding: 8px 12px;
+}
+
+.thread-messages {
+  display: grid;
+  gap: 10px;
+}
+
+.thread-messages article {
+  border: 1px solid #edf1f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.thread-messages small {
+  display: block;
+  margin-top: 6px;
+  color: #8290a6;
 }
 
 .message-card small {
