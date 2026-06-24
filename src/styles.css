@@ -357,6 +357,27 @@ p {
   box-shadow: var(--shadow-sm);
 }
 
+.icon-dismiss {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.icon-dismiss:hover {
+  border-color: rgba(201, 41, 49, 0.24);
+  color: var(--primary);
+}
+
 .form-actions {
   grid-column: 1 / -1;
   display: flex;

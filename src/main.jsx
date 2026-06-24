@@ -539,15 +539,15 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             <div>
               <strong>Action Needed</strong>
               <p>{[
-                actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} unread message${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
-                showFinanceAction ? `${actionCounts.openDues} open due${actionCounts.openDues === 1 ? '' : 's'}` : '',
+                actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} Unread Message${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
+                showFinanceAction ? `${actionCounts.openDues} Open Due${actionCounts.openDues === 1 ? '' : 's'}` : '',
               ].filter(Boolean).join(' · ')}</p>
             </div>
           </div>
           <div>
             {actionCounts.unreadMessages > 0 && <button type="button" onClick={() => onPage('messages')}>Open Messages</button>}
             {showFinanceAction && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
-            {!isParent && !isFollower && showFinanceAction && <button className="ghost" type="button" onClick={dismissFinanceAction}>Dismiss Finance</button>}
+            {!isParent && !isFollower && showFinanceAction && <button aria-label="Dismiss Finance Alert" className="icon-dismiss" title="Dismiss Finance Alert" type="button" onClick={dismissFinanceAction}>×</button>}
           </div>
         </section>
       )}
@@ -564,7 +564,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
           <div>
             <button type="button" onClick={() => onPage('messages')}>Open</button>
-            <button className="ghost" type="button" onClick={dismissBroadcastAlert}>Dismiss</button>
+            <button aria-label="Dismiss Broadcast Alert" className="icon-dismiss" title="Dismiss Broadcast Alert" type="button" onClick={dismissBroadcastAlert}>×</button>
           </div>
         </section>
       )}
@@ -572,7 +572,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <section className="family-dashboard">
           <section className="family-hero">
             <p>{nextEvent ? 'Next Up' : 'Schedule'}</p>
-            <h2>{nextEvent ? nextEvent.title : 'No upcoming events'}</h2>
+            <h2>{nextEvent ? nextEvent.title : 'No Upcoming Events'}</h2>
             <div>
               <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Your team schedule will appear here.'}</span>
               {nextEvent?.location && <span>{nextEvent.location}</span>}
@@ -584,16 +584,16 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </section>
           <div className="family-dashboard-grid">
             <div className="dashboard-panel">
-              <SectionBar title="Upcoming" action="View all" onAction={() => onPage('schedule')} />
+              <SectionBar title="Upcoming" action="View All" onAction={() => onPage('schedule')} />
               <div className="panel compact-list">
                 {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
-                {!upcoming.length && <EmptyState title="No events yet" body="Games, practices, and tournaments will appear here once a coach adds them." />}
+                {!upcoming.length && <EmptyState title="No Events Yet" body="Games, practices, and tournaments will appear here once a coach adds them." />}
               </div>
             </div>
             <div className="dashboard-panel">
               <SectionBar title="Latest Broadcast" action="Messages" onAction={() => onPage('messages')} />
               <div className="panel dashboard-message-list">
-                {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No broadcasts yet" body="Team announcements will appear here." />}
+                {recentBroadcast ? <MessageCard message={recentBroadcast} /> : <EmptyState title="No Broadcasts Yet" body="Team announcements will appear here." />}
               </div>
             </div>
           </div>
@@ -601,7 +601,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             {isParent && (
               <article className="family-card">
                 <span>My Player{claimedPlayers.length === 1 ? '' : 's'}</span>
-                <strong>{claimedPlayers.length ? claimedPlayers.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(', ') : 'Not claimed yet'}</strong>
+                <strong>{claimedPlayers.length ? claimedPlayers.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(', ') : 'Not Claimed Yet'}</strong>
                 <button type="button" onClick={() => onPage('account')}>{claimedPlayers.length ? 'Manage' : 'Claim Player'}</button>
               </article>
             )}
@@ -614,7 +614,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             )}
             <article className={`family-card ${actionCounts.unreadMessages ? 'needs-action' : ''}`}>
               <span>Messages</span>
-              <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No updates yet'}</strong>
+              <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No Updates Yet'}</strong>
               <button type="button" onClick={() => onPage('messages')}>Open Messages</button>
             </article>
           </div>
@@ -624,31 +624,31 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <>
       {!hasTeamData && (
         <section className="empty-hero">
-          <h2>Build your season workspace</h2>
+          <h2>Build Your Season Workspace</h2>
           <p>Add the roster first, then schedule games, assign dues, and post the first team message.</p>
           <div>
-            <button type="button" onClick={() => onPage('roster')}>Add players</button>
-            <button type="button" onClick={() => onPage('schedule')}>Add schedule</button>
-            <button type="button" onClick={() => onPage('messages')}>Send message</button>
+            <button type="button" onClick={() => onPage('roster')}>Add Players</button>
+            <button type="button" onClick={() => onPage('schedule')}>Add Schedule</button>
+            <button type="button" onClick={() => onPage('messages')}>Send Message</button>
           </div>
         </section>
       )}
       <section className="dashboard-top-grid">
         <div className="dashboard-summary-stack">
-          <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
-          <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : 'No new'} onClick={() => onPage('messages')} />
+          <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} Claimed` : `${data.roster.length} Players`} onClick={() => onPage('roster')} />
+          <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} Events`} onClick={() => onPage('schedule')} />
+          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread` : 'No New'} onClick={() => onPage('messages')} />
         </div>
         <section className="today-card">
           <p>{nextEvent ? 'Today' : 'Next Up'}</p>
-          <h2>{nextEvent ? nextEvent.title : 'No upcoming event'}</h2>
+          <h2>{nextEvent ? nextEvent.title : 'No Upcoming Event'}</h2>
           <div>
             <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Schedule TBD'}</span>
             <span>{nextEvent?.location || 'Location TBD'}</span>
           </div>
           <footer>
             <Badge label={nextEvent?.event_type || 'Event'} />
-            <button type="button" onClick={() => onPage('schedule')}>View schedule</button>
+            <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
           </footer>
         </section>
       </section>
@@ -657,11 +657,11 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           <SectionBar title="Schedule" action="Manage" onAction={() => onPage('schedule')} />
           <div className="panel compact-list">
             {upcoming.map((event) => <EventRow event={event} key={event.id} />)}
-            {!upcoming.length && <EmptyState title="No events yet" body="Add practices, games, tournaments, and meetings so families know what is next." action="Add schedule" onAction={() => onPage('schedule')} />}
+            {!upcoming.length && <EmptyState title="No Events Yet" body="Add practices, games, tournaments, and meetings so families know what is next." action="Add Schedule" onAction={() => onPage('schedule')} />}
           </div>
         </div>
         <div className="dashboard-panel">
-          <SectionBar title="Messages" action="View all" onAction={() => onPage('messages')} />
+          <SectionBar title="Messages" action="View All" onAction={() => onPage('messages')} />
           <div className="panel dashboard-message-list">
             {data.conversations.slice(0, 4).map((conversation) => (
               <div className="message-preview" key={conversation.id}>
@@ -670,7 +670,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               </div>
             ))}
             {!data.conversations.length && recentBroadcast && <MessageCard message={recentBroadcast} />}
-            {!data.conversations.length && !recentBroadcast && <EmptyState title="No messages yet" body="Broadcasts and conversations will appear here." action="Message team" onAction={() => onPage('messages')} />}
+            {!data.conversations.length && !recentBroadcast && <EmptyState title="No Messages Yet" body="Broadcasts and conversations will appear here." action="Message Team" onAction={() => onPage('messages')} />}
           </div>
         </div>
       </section>
