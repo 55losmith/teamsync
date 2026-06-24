@@ -362,6 +362,144 @@ begin
 end;
 $$;
 
+create or replace function public.start_conversation_thread(
+  p_team_id uuid,
+  p_subject text,
+  p_body text,
+  p_recipient_type text default 'all_coaches',
+  p_recipient_name text default null,
+  p_recipient_profile_id uuid default null,
+  p_roster_member_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles%rowtype;
+  v_conversation_id uuid;
+begin
+  select * into v_profile
+  from public.profiles
+  where id = auth.uid();
+
+  if v_profile.id is null or v_profile.team_id <> p_team_id then
+    raise exception 'Join this team before sending messages';
+  end if;
+
+  if v_profile.role not in ('coach', 'parent') then
+    raise exception 'Followers cannot send private messages';
+  end if;
+
+  insert into public.conversations (
+    team_id,
+    subject,
+    recipient_type,
+    recipient_name,
+    recipient_profile_id,
+    roster_member_id,
+    created_by,
+    updated_at
+  )
+  values (
+    p_team_id,
+    coalesce(nullif(trim(p_subject), ''), 'Message'),
+    coalesce(nullif(trim(p_recipient_type), ''), 'all_coaches'),
+    nullif(trim(p_recipient_name), ''),
+    p_recipient_profile_id,
+    p_roster_member_id,
+    auth.uid(),
+    now()
+  )
+  returning id into v_conversation_id;
+
+  insert into public.conversation_messages (team_id, conversation_id, sender_id, body)
+  values (p_team_id, v_conversation_id, auth.uid(), coalesce(nullif(trim(p_body), ''), 'Message'));
+
+  insert into public.notifications (team_id, recipient_id, conversation_id, title, body, notification_type)
+  select p_team_id, p.id, v_conversation_id, p_subject, p_body, 'message'
+  from public.profiles p
+  where p.team_id = p_team_id
+    and p.id <> auth.uid()
+    and (
+      p_recipient_type = 'all_team'
+      or (p_recipient_type = 'all_parents' and p.role = 'parent')
+      or (p_recipient_type = 'all_coaches' and p.role = 'coach')
+      or (p_recipient_type = 'profile' and p.id = p_recipient_profile_id)
+      or (
+        p_recipient_type = 'player_parent'
+        and (
+          p.id = p_recipient_profile_id
+          or exists (
+            select 1
+            from public.roster_parent_claims rpc
+            where rpc.roster_member_id = p_roster_member_id
+              and rpc.parent_profile_id = p.id
+          )
+          or exists (
+            select 1
+            from public.roster_members rm
+            where rm.id = p_roster_member_id
+              and lower(rm.parent_email) = lower(p.email)
+          )
+        )
+      )
+    );
+
+  return v_conversation_id;
+end;
+$$;
+
+create or replace function public.reply_to_conversation_thread(
+  p_conversation_id uuid,
+  p_body text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles%rowtype;
+  v_conversation public.conversations%rowtype;
+  v_message_id uuid;
+begin
+  select * into v_profile
+  from public.profiles
+  where id = auth.uid();
+
+  select * into v_conversation
+  from public.conversations
+  where id = p_conversation_id;
+
+  if v_profile.id is null or v_conversation.id is null or v_profile.team_id <> v_conversation.team_id then
+    raise exception 'You cannot reply to this conversation';
+  end if;
+
+  if v_profile.role not in ('coach', 'parent') or not public.can_read_conversation(p_conversation_id) then
+    raise exception 'You cannot reply to this conversation';
+  end if;
+
+  insert into public.conversation_messages (team_id, conversation_id, sender_id, body)
+  values (v_conversation.team_id, p_conversation_id, auth.uid(), coalesce(nullif(trim(p_body), ''), 'Message'))
+  returning id into v_message_id;
+
+  update public.conversations
+  set updated_at = now()
+  where id = p_conversation_id;
+
+  insert into public.notifications (team_id, recipient_id, conversation_id, title, body, notification_type)
+  select v_conversation.team_id, p.id, p_conversation_id, v_conversation.subject, p_body, 'message'
+  from public.profiles p
+  where p.team_id = v_conversation.team_id
+    and p.id <> auth.uid()
+    and public.can_read_conversation(p_conversation_id);
+
+  return v_message_id;
+end;
+$$;
+
 drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select

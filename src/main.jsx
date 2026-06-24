@@ -234,6 +234,8 @@ function PublicShell({ children, profile, onSignOut }) {
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
   const isCoach = profile.role === 'coach'
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
+  const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
+  const actionCounts = getActionCounts(visibleData)
   const parentNavKeys = ['dashboard', 'schedule', 'dues', 'messages', 'account']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
   const visibleNav = isCoach
@@ -252,7 +254,9 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
           {visibleNav.map(([key, icon, label]) => (
             <button className={activePage === key ? 'active' : ''} key={key} type="button" onClick={() => onPage(key)}>
               <span>{icon}</span>
-              {label}
+              <span className="nav-label">{label}</span>
+              {key === 'messages' && actionCounts.unreadMessages > 0 && <strong className="nav-badge">{actionCounts.unreadMessages}</strong>}
+              {key === 'dues' && actionCounts.openDues > 0 && <strong className="nav-badge">{actionCounts.openDues}</strong>}
             </button>
           ))}
         </nav>
@@ -499,11 +503,31 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const nextEvent = upcoming[0]
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
   const recentBroadcast = data.announcements[0]
+  const actionCounts = getActionCounts(data)
+  const hasActions = actionCounts.unreadMessages > 0 || actionCounts.openDues > 0
 
   return (
     <div className="page-stack dashboard-page">
       <PageHeader title={isFollower ? 'Follower Dashboard' : isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
       {isParent && claimedPlayers.length === 0 && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
+      {hasActions && (
+        <section className="action-panel">
+          <div>
+            <span className="alert-dot" />
+            <div>
+              <strong>Action Needed</strong>
+              <p>{[
+                actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} unread message${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
+                actionCounts.openDues > 0 ? `${actionCounts.openDues} open due${actionCounts.openDues === 1 ? '' : 's'}` : '',
+              ].filter(Boolean).join(' · ')}</p>
+            </div>
+          </div>
+          <div>
+            {actionCounts.unreadMessages > 0 && <button type="button" onClick={() => onPage('messages')}>Open Messages</button>}
+            {actionCounts.openDues > 0 && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
+          </div>
+        </section>
+      )}
       {!hasTeamData && (
         <section className="empty-hero">
           <h2>Build your season workspace</h2>
@@ -519,7 +543,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <div className="dashboard-summary-stack">
           <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} claimed` : `${data.roster.length} players`} onClick={() => onPage('roster')} />
           <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} events`} onClick={() => onPage('schedule')} />
-          <Stat icon="messages" label="Messages" value={`${data.announcements.length + data.conversations.length} total`} onClick={() => onPage('messages')} />
+          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} unread` : `${data.announcements.length + data.conversations.length} total`} onClick={() => onPage('messages')} />
         </div>
         <section className="today-card">
           <p>{nextEvent ? 'Today' : 'Next Up'}</p>
@@ -877,6 +901,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const monthlyTotals = getTotals(monthDues.filter((due) => due.due_type === 'monthly'))
   const tournamentTotals = getTotals(monthDues.filter((due) => due.due_type === 'tournament'))
   const percent = monthTotals.amount ? Math.round((monthTotals.paid / monthTotals.amount) * 100) : 0
+  const openDues = monthDues.filter(needsDueAction)
   const monthlyByPlayer = new Map(monthDues.filter((due) => due.due_type === 'monthly').map((due) => [due.roster_member_id, due]))
   const tournamentGroups = groupTournamentDues(data.dues)
 
@@ -953,6 +978,17 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     <div className="page-stack finances-page">
       <PageHeader title="Team Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Monthly Dues' : '+ New Tournament Fee')} onAction={() => openDuesForm(financeTab)} />
       <Segmented value={financeTab} onChange={setFinanceTab} options={[['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]} />
+      {openDues.length > 0 && (
+        <section className="action-panel compact-action finance-alert">
+          <div>
+            <span className="alert-dot" />
+            <div>
+              <strong>{openDues.length} due{openDues.length === 1 ? '' : 's'} need attention</strong>
+              <p>{editable ? 'Review unpaid or partial player balances before the next event.' : 'You have an outstanding balance for your claimed player.'}</p>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="dues-summary">
         <MetricCard label="Collected" value={money(monthTotals.paid)} tone="green" />
         <MetricCard label="Outstanding" value={money(monthTotals.balance)} tone="red" />
@@ -1116,6 +1152,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   const recipientOptions = getRecipientOptions(data, profile)
   const selectedConversation = data.conversations.find((conversation) => conversation.id === selectedConversationId)
   const selectedBroadcast = data.announcements.find((announcement) => announcement.id === selectedBroadcastId)
+  const unreadMessages = data.notifications.filter((notification) => !notification.read_at && notification.notification_type === 'message')
 
   function startBroadcastReply(broadcast) {
     setMode('conversation')
@@ -1190,9 +1227,38 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
     onRefresh()
   }
 
+  async function markMessagesRead() {
+    if (!unreadMessages.length) return
+    setMessage('')
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .in('id', unreadMessages.map((notification) => notification.id))
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setMessage('Messages marked as read.')
+    onRefresh()
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
+      {unreadMessages.length > 0 && (
+        <section className="action-panel compact-action">
+          <div>
+            <span className="alert-dot" />
+            <div>
+              <strong>{unreadMessages.length} unread message notification{unreadMessages.length === 1 ? '' : 's'}</strong>
+              <p>Open the latest threads or mark them read once handled.</p>
+            </div>
+          </div>
+          <button type="button" onClick={markMessagesRead}>Mark Read</button>
+        </section>
+      )}
       <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId(''); setSelectedBroadcastId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && profile.role === 'coach' && (
         <form className="panel form" onSubmit={submitBroadcast}>
@@ -1778,6 +1844,18 @@ function EmptyState({ action, body, onAction, title }) {
 
 function Badge({ label }) {
   return <span className={`badge ${String(label).toLowerCase()}`}>{label}</span>
+}
+
+function getActionCounts(data) {
+  return {
+    unreadMessages: data.notifications.filter((notification) => !notification.read_at && notification.notification_type === 'message').length,
+    openDues: data.dues.filter(needsDueAction).length,
+  }
+}
+
+function needsDueAction(due) {
+  const balance = Number(due.amount || 0) - Number(due.paid_amount || 0) - Number(due.waived_amount || 0)
+  return balance > 0 && ['unpaid', 'partial'].includes(due.status)
 }
 
 function getParentScopedData(data, profile) {
