@@ -2643,6 +2643,7 @@ p {
   }
 
   .nav-list button {
+    position: relative;
     flex: 0 0 auto;
     min-height: 38px;
     gap: 8px;
@@ -3032,11 +3033,64 @@ p {
 
 @media (max-width: 520px) {
   .content {
-    padding: 14px 10px 34px;
+    padding: 14px 10px 96px;
   }
 
   .sidebar {
+    position: sticky;
+    top: 0;
     padding: 10px;
+  }
+
+  .sidebar-footer {
+    border-top: 0;
+    grid-template-columns: 1fr auto;
+    padding-top: 0;
+  }
+
+  .nav-list {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    gap: 4px;
+    margin: 0;
+    padding: 8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+    background: rgba(15, 23, 42, 0.98);
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.22);
+  }
+
+  .nav-list button {
+    flex: 0 0 76px;
+    min-height: 58px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px 6px;
+    font-size: 0.68rem;
+    text-align: center;
+  }
+
+  .nav-list button > span:first-child {
+    font-size: 1rem;
+  }
+
+  .nav-list .nav-label {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 9px;
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 0.64rem;
+    padding: 0 5px;
   }
 
   .brand-mark {
@@ -3058,9 +3112,19 @@ p {
     height: 30px;
   }
 
+  .mini-profile strong {
+    max-width: 138px;
+  }
+
   .mini-profile small,
   .sidebar-footer .muted-dark {
     display: none;
+  }
+
+  .signout {
+    min-height: 32px;
+    font-size: 0.78rem;
+    padding: 0 8px;
   }
 
   .page-header h1 {
