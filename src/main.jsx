@@ -23,7 +23,7 @@ const navItems = [
 const emptyForms = {
   team: { name: 'Lone Star Rangers', season: 'Summer 2026', age_group: '9U Travel', location: 'Texas', head_coach: '', monthly_dues: '150', daily_pitch_limit: '75' },
   roster: { player_name: '', jersey_number: '', position: '', bats: '', throws: '', parent_name: '', parent_email: '', parent_phone: '' },
-  event: { title: '', event_type: 'practice', starts_at: '', location: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', notes: '' },
+  event: { title: '', event_type: 'practice', starts_at: '', location: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', status: 'scheduled', notes: '' },
   due: { title: 'Monthly Dues', due_type: 'monthly', roster_member_id: '', amount: '150', due_date: today, status: 'unpaid', paid_amount: '0', waived_amount: '0', notes: '' },
   announcement: { title: '', body: '' },
   conversation: { subject: '', recipient_key: 'all_parents', body: '' },
@@ -826,20 +826,98 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
   const [tab, setTab] = useState('upcoming')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForms.event)
+  const [editingEventId, setEditingEventId] = useState(null)
   const [scoreForms, setScoreForms] = useState({})
   const now = new Date()
   const events = data.events.filter((event) => tab === 'upcoming' ? new Date(event.starts_at) >= now : new Date(event.starts_at) < now)
 
   async function submit(event) {
     event.preventDefault()
-    await saveRow('events', {
+    setMessage('')
+    const payload = {
       ...form,
       team_id: team.id,
       our_score: form.our_score === '' ? null : Number(form.our_score),
       opponent_score: form.opponent_score === '' ? null : Number(form.opponent_score),
       result: form.our_score === '' || form.opponent_score === '' ? '' : form.result,
-    }, emptyForms.event, setForm, onRefresh, setMessage)
+      status: form.status || 'scheduled',
+    }
+
+    if (editingEventId) {
+      const originalEvent = data.events.find((item) => item.id === editingEventId)
+      const { error } = await supabase.from('events').update(payload).eq('id', editingEventId)
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      await notifyScheduleChange(originalEvent, payload, 'updated')
+      setEditingEventId(null)
+      setForm(emptyForms.event)
+      setShowForm(false)
+      onRefresh()
+      return
+    }
+
+    await saveRow('events', payload, emptyForms.event, setForm, onRefresh, setMessage)
     setShowForm(false)
+  }
+
+  function startEdit(event) {
+    setEditingEventId(event.id)
+    setForm({
+      title: event.title || '',
+      event_type: event.event_type || 'practice',
+      starts_at: toDateTimeLocal(event.starts_at),
+      location: event.location || '',
+      opponent: event.opponent || '',
+      home_away: event.home_away || 'home',
+      our_score: event.our_score ?? '',
+      opponent_score: event.opponent_score ?? '',
+      result: event.result || '',
+      status: event.status || 'scheduled',
+      notes: event.notes || '',
+    })
+    setShowForm(true)
+  }
+
+  function cancelEdit() {
+    setEditingEventId(null)
+    setForm(emptyForms.event)
+    setShowForm(false)
+  }
+
+  async function cancelEvent(event) {
+    setMessage('')
+    const confirmed = window.confirm(`Cancel ${event.title}? Parents and followers will be notified.`)
+    if (!confirmed) return
+
+    const { error } = await supabase.from('events').update({ status: 'cancelled' }).eq('id', event.id)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    await notifyScheduleChange(event, { ...event, status: 'cancelled' }, 'cancelled')
+    onRefresh()
+  }
+
+  async function notifyScheduleChange(originalEvent, nextEvent, changeType) {
+    const recipients = data.members.filter((member) => ['parent', 'follower'].includes(member.role))
+    if (!recipients.length) return
+
+    const title = changeType === 'cancelled' ? `Event Cancelled: ${originalEvent?.title || nextEvent.title}` : `Schedule Updated: ${nextEvent.title}`
+    const body = changeType === 'cancelled'
+      ? `${originalEvent?.title || nextEvent.title} has been cancelled.`
+      : `${nextEvent.title} is now set for ${formatDate(nextEvent.starts_at)} at ${nextEvent.location || 'Location TBD'}.`
+
+    const { error } = await supabase.from('notifications').insert(recipients.map((member) => ({
+      body,
+      notification_type: 'schedule',
+      recipient_id: member.id,
+      team_id: team.id,
+      title,
+    })))
+
+    if (error) setMessage(error.message)
   }
 
   async function saveScore(event, scoreForm) {
@@ -864,7 +942,7 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Schedule" subtitle={`${data.events.length} events this season`} action={editable && '+ Add Event'} onAction={() => setShowForm(!showForm)} />
+      <PageHeader title="Schedule" subtitle={`${data.events.length} events this season`} action={editable && '+ Add Event'} onAction={() => { setEditingEventId(null); setForm(emptyForms.event); setShowForm(!showForm) }} />
       <Segmented value={tab} onChange={setTab} options={[['upcoming', `Upcoming (${data.events.filter((e) => new Date(e.starts_at) >= now).length})`], ['past', `Past (${data.events.filter((e) => new Date(e.starts_at) < now).length})`]]} />
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -883,20 +961,32 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
             <option value="away">Away</option>
             <option value="neutral">Neutral</option>
           </select>
+          {editingEventId && (
+            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              <option value="scheduled">Scheduled</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          )}
           <input type="number" min="0" placeholder="Our score, if final" value={form.our_score} onChange={(e) => setForm({ ...form, our_score: e.target.value })} />
           <input type="number" min="0" placeholder="Opponent score, if final" value={form.opponent_score} onChange={(e) => setForm({ ...form, opponent_score: e.target.value })} />
-          <button className="primary" type="submit">Save Event</button>
+          <div className="edit-actions">
+            <button className="primary" type="submit">{editingEventId ? 'Save Changes' : 'Save Event'}</button>
+            {editingEventId && <button type="button" onClick={cancelEdit}>Cancel Edit</button>}
+          </div>
         </form>
       )}
       <div className="event-list">
         {events.map((event) => (
           <EventCard
-            editable={editable && tab === 'past' && event.event_type === 'game'}
+            editable={editable}
             event={event}
             key={event.id}
+            onCancel={() => cancelEvent(event)}
+            onEdit={() => startEdit(event)}
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
             scoreForm={scoreForms[event.id] || { our_score: event.our_score ?? '', opponent_score: event.opponent_score ?? '' }}
+            scoreEditable={editable && tab === 'past' && event.event_type === 'game'}
           />
         ))}
         {!events.length && <EmptyState title={`No ${tab} events`} body={tab === 'upcoming' ? 'Add games, practices, tournaments, and meetings for the season.' : 'Past games will show here once their date has passed.'} />}
@@ -1819,22 +1909,29 @@ function PositionPicker({ onChange, value }) {
   )
 }
 
-function EventCard({ editable, event, onScoreChange, onScoreSave, scoreForm }) {
+function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
   const date = new Date(event.starts_at)
   const hasScore = Number.isFinite(Number(event.our_score)) && Number.isFinite(Number(event.opponent_score))
+  const isCancelled = event.status === 'cancelled'
   return (
-    <article className="event-card">
+    <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
       <div>
-        <h3>{event.title} <Badge label={event.event_type} /> {event.home_away && <Badge label={event.home_away} />} {event.result && <Badge label={event.result} />}</h3>
+        <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <Badge label={event.home_away} />} {event.result && <Badge label={event.result} />}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
         <p>{event.location || 'Location TBD'} {event.opponent ? `· vs. ${event.opponent}` : ''}</p>
         {hasScore && <p className="score-line">Final: {event.our_score}-{event.opponent_score}</p>}
         {editable && (
+          <div className="event-actions">
+            <button type="button" onClick={onEdit}>Edit</button>
+            {!isCancelled && <button type="button" onClick={onCancel}>Cancel Event</button>}
+          </div>
+        )}
+        {scoreEditable && !isCancelled && (
           <form className="score-form" onSubmit={(submitEvent) => { submitEvent.preventDefault(); onScoreSave(scoreForm) }}>
             <input type="number" min="0" aria-label="Our score" placeholder="Us" value={scoreForm.our_score} onChange={(e) => onScoreChange({ ...scoreForm, our_score: e.target.value })} />
             <input type="number" min="0" aria-label="Opponent score" placeholder="Them" value={scoreForm.opponent_score} onChange={(e) => onScoreChange({ ...scoreForm, opponent_score: e.target.value })} />
-            <button type="submit">Save score</button>
+            <button type="submit">Save Score</button>
           </form>
         )}
       </div>
@@ -2207,6 +2304,13 @@ function initials(value) {
 
 function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return offsetDate.toISOString().slice(0, 16)
 }
 
 function formatShortDate(value) {

@@ -80,12 +80,16 @@ create table if not exists public.events (
   our_score integer,
   opponent_score integer,
   result text default '' check (result in ('', 'win', 'loss', 'tie')),
+  status text not null default 'scheduled' check (status in ('scheduled', 'cancelled')),
   notes text,
   created_at timestamptz not null default now()
 );
 
 alter table public.events add column if not exists opponent text;
 alter table public.events add column if not exists home_away text default 'home';
+alter table public.events add column if not exists status text not null default 'scheduled';
+alter table public.events drop constraint if exists events_status_check;
+alter table public.events add constraint events_status_check check (status in ('scheduled', 'cancelled'));
 alter table public.events add column if not exists our_score integer;
 alter table public.events add column if not exists opponent_score integer;
 alter table public.events add column if not exists result text default '';

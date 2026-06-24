@@ -2092,7 +2092,8 @@ p {
 
 .badge.game,
 .badge.unpaid,
-.badge.loss {
+.badge.loss,
+.badge.cancelled {
   background: var(--primary-soft);
   color: var(--primary);
 }
@@ -2144,6 +2145,34 @@ p {
   gap: 30px;
   min-height: 112px;
   padding: 22px 28px;
+}
+
+.cancelled-event {
+  background: #fffafa;
+}
+
+.cancelled-event h3,
+.cancelled-event p {
+  color: var(--muted);
+}
+
+.event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.event-actions button {
+  min-height: 34px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  padding: 0 12px;
+}
+
+.event-actions button:last-child {
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .score-line {
