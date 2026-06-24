@@ -496,6 +496,47 @@ p {
   min-height: 96px;
 }
 
+.invite-composer {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 1fr);
+  gap: 14px;
+  padding: 18px;
+}
+
+.invite-composer > div:first-child {
+  align-self: start;
+}
+
+.invite-composer span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.invite-composer h2 {
+  margin-top: 4px;
+  font-size: 1.2rem;
+}
+
+.invite-composer p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.invite-composer label:has(textarea),
+.invite-composer .form-actions {
+  grid-column: 1 / -1;
+}
+
+.invite-composer .form-actions button:not(.primary) {
+  min-height: 40px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  padding: 0 14px;
+}
+
 .member-directory {
   display: grid;
   gap: 14px;
@@ -2705,7 +2746,8 @@ p {
   .two-col,
   .grid-form,
   .form-row,
-  .claim-panel {
+  .claim-panel,
+  .invite-composer {
     grid-template-columns: 1fr;
   }
 

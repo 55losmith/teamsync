@@ -686,6 +686,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(emptyForms.roster)
   const [copyStatus, setCopyStatus] = useState('')
+  const [inviteDraft, setInviteDraft] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const isParent = profile.role === 'parent'
   const claimRoster = fullData?.roster || data.roster
@@ -749,17 +750,31 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
     else onRefresh()
   }
 
-  async function inviteParent(player) {
+  function startParentInvite(player) {
     const inviteLink = `${window.location.origin}/?role=parent&teamCode=${team.join_code}&playerId=${player.id}`
-    const inviteText = `Join ${team.name} on TeamSync and claim ${player.player_name}: ${inviteLink}\nTeam code: ${team.join_code}`
+    setInviteDraft({
+      email: player.parent_email || '',
+      link: inviteLink,
+      playerName: player.player_name,
+      subject: `Join ${team.name} on TeamSync`,
+      text: `Hi,\n\nPlease join ${team.name} on TeamSync and claim ${player.player_name}.\n\n${inviteLink}\n\nTeam code: ${team.join_code}\n\nAfter signup, TeamSync will connect you to ${player.player_name}'s schedule, messages, and dues.`,
+    })
+    setCopyStatus('')
+  }
 
+  async function copyParentInvite() {
+    if (!inviteDraft) return
     try {
-      await navigator.clipboard.writeText(inviteText)
-      setCopyStatus(`Invite copied and email draft opened for ${player.player_name}`)
+      await navigator.clipboard.writeText(inviteDraft.text)
+      setCopyStatus(`Invite copied for ${inviteDraft.playerName}.`)
     } catch {
-      setCopyStatus(`Copy blocked. Share this link with ${player.parent_name || 'the parent'}: ${inviteLink}`)
+      setCopyStatus(`Copy blocked. Share this link manually: ${inviteDraft.link}`)
     }
-    window.location.assign(`mailto:${encodeURIComponent(player.parent_email || '')}?subject=${encodeURIComponent(`Join ${team.name} on TeamSync`)}&body=${encodeURIComponent(inviteText)}`)
+  }
+
+  function openParentInviteEmail() {
+    if (!inviteDraft) return
+    window.location.assign(`mailto:${encodeURIComponent(inviteDraft.email)}?subject=${encodeURIComponent(inviteDraft.subject)}&body=${encodeURIComponent(inviteDraft.text)}`)
   }
 
   return (
@@ -767,6 +782,22 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
       <PageHeader title="Roster" subtitle={`${data.roster.length} players on the team`} action={editable && '+ Add Player'} onAction={() => setShowForm(!showForm)} />
       {isParent && <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />}
       {copyStatus && <div className="notice">{copyStatus}</div>}
+      {editable && inviteDraft && (
+        <section className="panel invite-composer">
+          <div>
+            <span>Parent Invite</span>
+            <h2>Invite Parent For {inviteDraft.playerName}</h2>
+            <p>This invite link sends the parent to signup and helps them claim the right player.</p>
+          </div>
+          <label>Parent Email<input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} placeholder="parent@email.com" /></label>
+          <label>Message<textarea value={inviteDraft.text} onChange={(event) => setInviteDraft({ ...inviteDraft, text: event.target.value })} /></label>
+          <div className="form-actions">
+            <button className="primary" type="button" onClick={openParentInviteEmail}>Open Email Draft</button>
+            <button type="button" onClick={copyParentInvite}>Copy Invite</button>
+            <button type="button" onClick={() => setInviteDraft(null)}>Close</button>
+          </div>
+        </section>
+      )}
       <section className="toolbar">
         <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or jersey number" />
         <div className="toolbar-meta">
@@ -807,7 +838,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
             onCancelEdit={cancelEdit}
             onEdit={() => startEdit(player)}
             onEditForm={setEditForm}
-            onInviteParent={() => inviteParent(player)}
+            onInviteParent={() => startParentInvite(player)}
             onDelete={() => deletePlayer(player)}
             onSaveEdit={saveEdit}
             parentContacts={parentContactsByPlayer.get(player.id) || []}
