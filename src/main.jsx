@@ -1290,7 +1290,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack finances-page">
-      <PageHeader title="Team Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Monthly Dues' : '+ New Tournament Fee')} onAction={() => openDuesForm(financeTab)} />
+      <PageHeader title="Team Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
       <Segmented value={financeTab} onChange={setFinanceTab} options={[['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]} />
       {openDues.length > 0 && (
         <section className="action-panel compact-action finance-alert">
@@ -2037,16 +2037,16 @@ function PositionPicker({ onChange, value }) {
 
 function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
   const date = new Date(event.starts_at)
-  const hasScore = Number.isFinite(Number(event.our_score)) && Number.isFinite(Number(event.opponent_score))
+  const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
       <div>
-        <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <Badge label={event.home_away} />} {event.result && <Badge label={event.result} />}</h3>
+        <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <span className="desktop-detail"><Badge label={event.home_away} /></span>} {event.result && <span className="desktop-detail"><Badge label={event.result} /></span>}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-        <p>{event.location || 'Location TBD'} {event.opponent ? `· vs. ${event.opponent}` : ''}</p>
-        {hasScore && <p className="score-line">Final: {event.our_score}-{event.opponent_score}</p>}
+        <p>{event.location || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span></p>
+        {hasScore && <p className="score-line desktop-detail">Final: {event.our_score}-{event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
             <button type="button" onClick={onEdit}>Edit</button>
