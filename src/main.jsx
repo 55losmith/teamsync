@@ -343,7 +343,7 @@ function mobileLabel(label) {
 function Brand({ team }) {
   return (
     <div className="brand">
-      <span className="brand-mark">🏆</span>
+      <span className="brand-mark"><img src="/lone-star-rangers.png" alt="" /></span>
       <div>
         <strong>{team?.name || 'Lone Star Rangers'}</strong>
         <p>{team?.age_group || '9U Travel'} · {team?.location || 'Texas'}</p>
@@ -1290,7 +1290,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack finances-page">
-      <PageHeader title="Team Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
+      <PageHeader title="Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
       <Segmented value={financeTab} onChange={setFinanceTab} options={[['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]} />
       {openDues.length > 0 && (
         <section className="action-panel compact-action finance-alert">
@@ -2046,7 +2046,7 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
         <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <span className="desktop-detail"><Badge label={event.home_away} /></span>} {event.result && <span className="desktop-detail"><Badge label={event.result} /></span>}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
         <p>{event.location || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span></p>
-        {hasScore && <p className="score-line desktop-detail">Final: {event.our_score}-{event.opponent_score}</p>}
+        {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
             <button type="button" onClick={onEdit}>Edit</button>

@@ -124,11 +124,20 @@ p {
   height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #dc2626, var(--primary));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #0f172a;
   color: #ffffff;
   font-size: 1.05rem;
-  box-shadow: 0 10px 24px rgba(165, 22, 29, 0.28);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.3);
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .brand strong {
@@ -2222,8 +2231,15 @@ p {
 }
 
 .score-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--foreground);
   font-weight: 850;
+}
+
+.score-line span {
+  color: var(--muted-strong);
 }
 
 .score-form {
@@ -3188,7 +3204,7 @@ p {
 
   .content {
     width: 100%;
-    padding: 32px 24px calc(112px + env(safe-area-inset-bottom));
+    padding: 28px 24px calc(116px + env(safe-area-inset-bottom));
   }
 
   .dashboard-top-grid,
@@ -3214,12 +3230,13 @@ p {
   }
 
   .page-header h1 {
-    font-size: 1.8rem;
+    font-size: 1.72rem;
     line-height: 1.05;
   }
 
   .page-header p {
-    font-size: 1rem;
+    color: var(--muted);
+    font-size: 0.96rem;
     line-height: 1.3;
   }
 
@@ -3228,8 +3245,9 @@ p {
     min-height: 44px;
     flex: 0 0 auto;
     max-width: 50%;
-    padding: 0 14px;
-    font-size: 0.9rem;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 0.88rem;
     white-space: nowrap;
   }
 
@@ -3244,6 +3262,34 @@ p {
 
   .panel {
     border-radius: 12px;
+  }
+
+  .badge {
+    min-height: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 9px;
+    font-size: 0.72rem;
+    line-height: 1;
+    padding: 3px 9px;
+  }
+
+  .badge.game,
+  .badge.home,
+  .badge.away {
+    background: #ffffff;
+    color: var(--foreground);
+  }
+
+  .badge.practice {
+    border-color: rgba(217, 119, 6, 0.14);
+    background: #fff7ed;
+    color: #92400e;
+  }
+
+  .badge.tournament {
+    border-color: rgba(124, 58, 237, 0.16);
+    background: #f5f3ff;
+    color: #6d28d9;
   }
 
   .player-row {
@@ -3293,14 +3339,22 @@ p {
   }
 
   .event-card {
-    grid-template-columns: 64px minmax(0, 1fr);
-    gap: 14px;
-    padding: 16px;
+    grid-template-columns: 66px minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+    border: 1px solid #d7dde7;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   }
 
   .event-card h3 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
     font-size: 1.08rem;
-    line-height: 1.18;
+    line-height: 1.16;
   }
 
   .desktop-detail {
@@ -3310,30 +3364,77 @@ p {
   .date-block {
     display: grid;
     justify-items: center;
-    border-radius: 12px;
+    min-height: 82px;
+    align-content: center;
+    border-radius: 13px;
     background: var(--primary-soft);
-    padding: 9px 6px;
+    padding: 10px 6px;
     text-align: center;
   }
 
   .date-block strong {
-    font-size: 1.72rem;
+    font-size: 1.8rem;
     line-height: 1;
   }
 
   .date-block span,
   .date-block small {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
+    line-height: 1.05;
   }
 
   .event-card p {
-    margin-top: 4px;
-    font-size: 0.94rem;
-    line-height: 1.25;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.24;
+  }
+
+  .score-line {
+    margin-top: 12px;
+    color: var(--foreground) !important;
+    font-size: 0.98rem !important;
+    font-weight: 900;
+  }
+
+  .score-line span {
+    width: 18px;
+    color: var(--foreground);
+    font-size: 0.92rem;
+    text-align: center;
   }
 
   .event-actions {
     display: none;
+  }
+
+  .message-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .rows > .message-card {
+    border-color: #d7dde7;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  }
+
+  .message-card h3 {
+    gap: 7px;
+    font-size: 1rem;
+  }
+
+  .message-card p,
+  .message-card small {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.28;
+  }
+
+  .message-card .broadcast {
+    width: 38px;
+    height: 38px;
   }
 
   .today-card,
