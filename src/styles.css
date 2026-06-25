@@ -1735,12 +1735,14 @@ p {
   color: #a16207;
 }
 
-.finance-tournament-list {
+.finance-tournament-list,
+.sponsorship-list {
   display: grid;
   gap: 14px;
 }
 
-.tournament-fee-card {
+.tournament-fee-card,
+.sponsorship-card {
   display: grid;
   gap: 14px;
   border: 1px solid var(--border-strong);
@@ -1773,6 +1775,37 @@ p {
 
 .tournament-fee-total strong {
   color: var(--success);
+}
+
+.sponsorship-money {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sponsorship-money div {
+  border-radius: 10px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.sponsorship-money span,
+.sponsorship-notes {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.sponsorship-money strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.sponsorship-notes {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  line-height: 1.45;
 }
 
 .finance-pills {
@@ -3428,6 +3461,10 @@ p {
   .message-card .broadcast {
     width: 38px;
     height: 38px;
+  }
+
+  .sponsorship-money {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .today-card,

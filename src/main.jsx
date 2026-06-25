@@ -25,6 +25,7 @@ const emptyForms = {
   roster: { player_name: '', jersey_number: '', position: '', bats: '', throws: '', parent_name: '', parent_email: '', parent_phone: '' },
   event: { title: '', event_type: 'practice', starts_at: '', location: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', status: 'scheduled', notes: '' },
   due: { title: 'Monthly Dues', due_type: 'monthly', roster_member_id: '', amount: '150', due_date: today, status: 'unpaid', paid_amount: '0', waived_amount: '0', notes: '' },
+  sponsorship: { sponsor_name: '', purpose: 'general', amount: '', received_amount: '', applied_amount: '0', received_on: today, notes: '' },
   announcement: { title: '', body: '' },
   conversation: { subject: '', recipient_key: 'all_parents', body: '' },
   pitch: { roster_member_id: '', pitches: '', pitched_on: today, opponent: '', notes: '' },
@@ -36,7 +37,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [team, setTeam] = useState(null)
-  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
   const [activePage, setActivePage] = useState('dashboard')
@@ -53,7 +54,7 @@ function App() {
       setSession(nextSession)
       setProfile(null)
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setActivePage('dashboard')
     })
 
@@ -106,12 +107,12 @@ function App() {
 
     if (!profileRow.team_id) {
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setLoading(false)
       return
     }
 
-    const [teamResult, rosterResult, claimResult, eventResult, dueResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
+    const [teamResult, rosterResult, claimResult, eventResult, dueResult, sponsorshipResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
       supabase.from('teams').select('*').eq('id', profileRow.team_id).maybeSingle(),
       supabase.from('roster_members').select('*').eq('team_id', profileRow.team_id).order('player_name'),
       supabase.from('roster_parent_claims').select('*').eq('team_id', profileRow.team_id),
@@ -121,6 +122,12 @@ function App() {
         .select('*, roster_members(player_name, parent_email)')
         .eq('team_id', profileRow.team_id)
         .order('due_date', { ascending: true }),
+      supabase
+        .from('sponsorships')
+        .select('*')
+        .eq('team_id', profileRow.team_id)
+        .order('received_on', { ascending: false })
+        .order('created_at', { ascending: false }),
       supabase
         .from('announcements')
         .select('*')
@@ -154,7 +161,7 @@ function App() {
         .order('created_at', { ascending: false }),
     ])
 
-    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
+    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || sponsorshipResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
     if (error) setMessage(error.message)
 
     setTeam(teamResult.data || null)
@@ -163,6 +170,7 @@ function App() {
       parentClaims: claimResult.data || [],
       events: eventResult.data || [],
       dues: dueResult.data || [],
+      sponsorships: sponsorshipResult.data || [],
       announcements: announcementResult.data || [],
       pitchCounts: pitchResult.data || [],
       conversations: conversationResult.data || [],
@@ -1208,19 +1216,30 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const [financeTab, setFinanceTab] = useState('monthly')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForms.due)
+  const [tournamentFeeMode, setTournamentFeeMode] = useState('per_player')
+  const [showSponsorForm, setShowSponsorForm] = useState(false)
+  const [sponsorForm, setSponsorForm] = useState(emptyForms.sponsorship)
   const [monthDate, setMonthDate] = useState(new Date(today))
   const monthKey = getMonthKey(monthDate)
   const monthDues = data.dues.filter((due) => getMonthKey(due.due_date || due.created_at) === monthKey)
   const monthTotals = getTotals(monthDues)
   const monthlyTotals = getTotals(monthDues.filter((due) => due.due_type === 'monthly'))
   const tournamentTotals = getTotals(monthDues.filter((due) => due.due_type === 'tournament'))
+  const sponsorTotals = getSponsorshipTotals(data.sponsorships || [])
   const percent = monthTotals.amount ? Math.round((monthTotals.paid / monthTotals.amount) * 100) : 0
   const openDues = monthDues.filter(needsDueAction)
   const monthlyByPlayer = new Map(monthDues.filter((due) => due.due_type === 'monthly').map((due) => [due.roster_member_id, due]))
   const tournamentGroups = groupTournamentDues(data.dues)
+  const financeTabs = editable ? [['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees'], ['sponsorships', '★ Sponsorships']] : [['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]
 
   function openDuesForm(type = financeTab) {
+    if (type === 'sponsorships') {
+      setShowSponsorForm(true)
+      setShowForm(false)
+      return
+    }
     setFinanceTab(type)
+    setTournamentFeeMode('per_player')
     setForm({
       ...emptyForms.due,
       due_type: type,
@@ -1232,13 +1251,21 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   async function submit(event) {
     event.preventDefault()
     setMessage('')
+    const rosterCount = form.roster_member_id ? 1 : data.roster.length
+    const enteredAmount = Number(form.amount || 0)
+    const assignedAmount = form.due_type === 'tournament' && tournamentFeeMode === 'team_total' && !form.roster_member_id
+      ? Number((enteredAmount / Math.max(1, rosterCount)).toFixed(2))
+      : enteredAmount
     const baseDue = {
       ...form,
       team_id: team.id,
-      amount: Number(form.amount || 0),
+      amount: assignedAmount,
       paid_amount: Number(form.paid_amount || 0),
       waived_amount: Number(form.waived_amount || 0),
       due_date: form.due_date || null,
+      notes: form.due_type === 'tournament' && tournamentFeeMode === 'team_total' && !form.roster_member_id
+        ? `${form.notes ? `${form.notes}\n` : ''}Team tournament cost: ${money(enteredAmount)} split across ${rosterCount} players.`
+        : form.notes,
     }
     const payload = form.roster_member_id
       ? [{ ...baseDue, roster_member_id: form.roster_member_id }]
@@ -1256,6 +1283,28 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     }
     setForm(emptyForms.due)
     setShowForm(false)
+    onRefresh()
+  }
+
+  async function submitSponsorship(event) {
+    event.preventDefault()
+    setMessage('')
+    const payload = {
+      ...sponsorForm,
+      team_id: team.id,
+      amount: Number(sponsorForm.amount || 0),
+      received_amount: Number(sponsorForm.received_amount || sponsorForm.amount || 0),
+      applied_amount: Number(sponsorForm.applied_amount || 0),
+      received_on: sponsorForm.received_on || null,
+    }
+
+    const { error } = await supabase.from('sponsorships').insert(payload)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setSponsorForm(emptyForms.sponsorship)
+    setShowSponsorForm(false)
     onRefresh()
   }
 
@@ -1290,8 +1339,8 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
 
   return (
     <div className="page-stack finances-page">
-      <PageHeader title="Finances" subtitle="Track monthly dues and tournament fees for your team" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
-      <Segmented value={financeTab} onChange={setFinanceTab} options={[['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]} />
+      <PageHeader title="Finances" subtitle="Track monthly dues, tournament fees, and sponsorships" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : financeTab === 'sponsorships' ? '+ Sponsorship' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
+      <Segmented value={financeTab} onChange={(tab) => { setFinanceTab(tab); setShowForm(false); setShowSponsorForm(false) }} options={financeTabs} />
       {openDues.length > 0 && (
         <section className="action-panel compact-action finance-alert">
           <div>
@@ -1307,7 +1356,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
         <MetricCard label="Collected" value={money(monthTotals.paid)} tone="green" />
         <MetricCard label="Outstanding" value={money(monthTotals.balance)} tone="red" />
         <MetricCard label="Waived" value={money(monthTotals.waived)} tone="neutral" />
-        <MetricCard label="Collection Rate" value={`${percent}%`} tone="neutral" />
+        <MetricCard label={editable ? 'Sponsor Balance' : 'Collection Rate'} value={editable ? money(sponsorTotals.available) : `${percent}%`} tone="neutral" />
       </section>
       <section className="panel dues-progress">
         <div className="split"><p>{formatMonth(monthDate)} Collection</p><strong>{percent}%</strong></div>
@@ -1337,7 +1386,13 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             <option value="">Whole team</option>
             {data.roster.map((player) => <option key={player.id} value={player.id}>{player.player_name}</option>)}
           </select>
-          <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+          {form.due_type === 'tournament' && !form.roster_member_id && (
+            <select value={tournamentFeeMode} onChange={(e) => setTournamentFeeMode(e.target.value)}>
+              <option value="per_player">Amount is per player</option>
+              <option value="team_total">Amount is total tournament cost</option>
+            </select>
+          )}
+          <input aria-label="Amount" type="number" min="0" step="0.01" placeholder={form.due_type === 'tournament' && tournamentFeeMode === 'team_total' ? 'Total tournament cost' : 'Amount per player'} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
           <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
           <input type="number" min="0" step="0.01" placeholder="Waived amount" value={form.waived_amount} onChange={(e) => setForm({ ...form, waived_amount: e.target.value })} />
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -1349,7 +1404,29 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             <button className="primary" type="submit">Assign Dues</button>
             <button className="ghost" type="button" onClick={() => setShowForm(false)}>Cancel</button>
           </div>
-          {!form.roster_member_id && <p className="form-help">Whole team creates one due record for each roster player so every family can see their own balance.</p>}
+          {!form.roster_member_id && <p className="form-help">{form.due_type === 'tournament' && tournamentFeeMode === 'team_total' ? `${money(Number(form.amount || 0))} total will be split across ${data.roster.length || 0} players.` : 'Whole team creates one due record for each roster player so every family can see their own balance.'}</p>}
+        </form>
+      )}
+      {editable && showSponsorForm && (
+        <form className="panel form grid-form finance-form" onSubmit={submitSponsorship}>
+          <div className="form-section-title">Add Sponsorship</div>
+          <input placeholder="Sponsor name or company" value={sponsorForm.sponsor_name} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_name: e.target.value })} required />
+          <select value={sponsorForm.purpose} onChange={(e) => setSponsorForm({ ...sponsorForm, purpose: e.target.value })}>
+            <option value="general">General team fund</option>
+            <option value="tournament">Tournament support</option>
+            <option value="uniforms">Uniforms</option>
+            <option value="equipment">Equipment</option>
+            <option value="other">Other</option>
+          </select>
+          <input type="number" min="0" step="0.01" placeholder="Pledged amount" value={sponsorForm.amount} onChange={(e) => setSponsorForm({ ...sponsorForm, amount: e.target.value })} required />
+          <input type="number" min="0" step="0.01" placeholder="Received amount" value={sponsorForm.received_amount} onChange={(e) => setSponsorForm({ ...sponsorForm, received_amount: e.target.value })} />
+          <input type="number" min="0" step="0.01" placeholder="Already applied" value={sponsorForm.applied_amount} onChange={(e) => setSponsorForm({ ...sponsorForm, applied_amount: e.target.value })} />
+          <input type="date" value={sponsorForm.received_on} onChange={(e) => setSponsorForm({ ...sponsorForm, received_on: e.target.value })} />
+          <textarea placeholder="Notes, restrictions, or sponsor details" value={sponsorForm.notes} onChange={(e) => setSponsorForm({ ...sponsorForm, notes: e.target.value })} />
+          <div className="form-actions">
+            <button className="primary" type="submit">Save Sponsorship</button>
+            <button className="ghost" type="button" onClick={() => setShowSponsorForm(false)}>Cancel</button>
+          </div>
         </form>
       )}
       {editable && (financeTab === 'monthly' ? (
@@ -1399,10 +1476,21 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             {!data.roster.length && <EmptyState title="No players yet" body="Add players before assigning monthly dues." />}
           </section>
         </>
-      ) : (
+      ) : financeTab === 'tournament' ? (
         <section className="finance-tournament-list">
           {tournamentGroups.map((group) => <TournamentFeeCard group={group} key={group.key} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
           {!tournamentGroups.length && <EmptyState title="No tournament fees yet" body="Create a tournament fee for the whole team or a specific player." />}
+        </section>
+      ) : (
+        <section className="sponsorship-list">
+          <section className="dues-summary">
+            <MetricCard label="Pledged" value={money(sponsorTotals.amount)} tone="neutral" />
+            <MetricCard label="Received" value={money(sponsorTotals.received)} tone="green" />
+            <MetricCard label="Applied" value={money(sponsorTotals.applied)} tone="neutral" />
+            <MetricCard label="Available" value={money(sponsorTotals.available)} tone="green" />
+          </section>
+          {(data.sponsorships || []).map((sponsorship) => <SponsorshipCard key={sponsorship.id} sponsorship={sponsorship} />)}
+          {!(data.sponsorships || []).length && <EmptyState title="No sponsorships yet" body="Track sponsors here without automatically changing player dues." />}
         </section>
       ))}
     </div>
@@ -1451,6 +1539,34 @@ function TournamentFeeCard({ group, onPaid, onUnpaid, onWaive }) {
           </div>
         ))}
       </div>
+    </article>
+  )
+}
+
+function SponsorshipCard({ sponsorship }) {
+  const amount = Number(sponsorship.amount || 0)
+  const received = Number(sponsorship.received_amount || 0)
+  const applied = Number(sponsorship.applied_amount || 0)
+  const available = Math.max(0, received - applied)
+  const percent = amount ? Math.round((received / amount) * 100) : 0
+
+  return (
+    <article className="sponsorship-card">
+      <div className="tournament-fee-head">
+        <span className="money">★</span>
+        <div>
+          <h3>{sponsorship.sponsor_name}</h3>
+          <p>{titleCase(sponsorship.purpose || 'general')} · {formatShortDate(sponsorship.received_on || sponsorship.created_at)}</p>
+        </div>
+      </div>
+      <div className="sponsorship-money">
+        <div><span>Pledged</span><strong>{money(amount)}</strong></div>
+        <div><span>Received</span><strong>{money(received)}</strong></div>
+        <div><span>Applied</span><strong>{money(applied)}</strong></div>
+        <div><span>Available</span><strong>{money(available)}</strong></div>
+      </div>
+      <div className="progress"><span style={{ width: `${Math.min(100, percent)}%` }} /></div>
+      {sponsorship.notes && <p className="sponsorship-notes">{sponsorship.notes}</p>}
     </article>
   )
 }
@@ -2217,6 +2333,7 @@ function getParentScopedData(data, profile) {
     ...data,
     roster: claimedPlayers,
     dues: data.dues.filter((due) => claimedPlayerIds.has(due.roster_member_id)),
+    sponsorships: [],
     conversations,
     conversationMessages: data.conversationMessages.filter((message) => conversationIds.has(message.conversation_id)),
   }
@@ -2228,6 +2345,7 @@ function getFollowerScopedData(data) {
     roster: [],
     parentClaims: [],
     dues: [],
+    sponsorships: [],
     pitchCounts: [],
     conversations: [],
     conversationMessages: [],
@@ -2340,6 +2458,16 @@ function getTotals(dues) {
   }, { amount: 0, paid: 0, waived: 0, balance: 0 })
 }
 
+function getSponsorshipTotals(sponsorships = []) {
+  return sponsorships.reduce((total, sponsorship) => {
+    total.amount += Number(sponsorship.amount || 0)
+    total.received += Number(sponsorship.received_amount || 0)
+    total.applied += Number(sponsorship.applied_amount || 0)
+    total.available = Math.max(0, total.received - total.applied)
+    return total
+  }, { amount: 0, received: 0, applied: 0, available: 0 })
+}
+
 function groupTournamentDues(dues) {
   const groups = new Map()
   dues.filter((due) => due.due_type === 'tournament').forEach((due) => {
@@ -2355,6 +2483,14 @@ function groupTournamentDues(dues) {
     groups.set(key, current)
   })
   return Array.from(groups.values()).sort((a, b) => new Date(b.dueDate || 0) - new Date(a.dueDate || 0))
+}
+
+function titleCase(value = '') {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ')
 }
 
 function addMonths(value, count) {

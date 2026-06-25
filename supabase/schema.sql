@@ -116,6 +116,26 @@ alter table public.dues add constraint dues_status_check check (status in ('unpa
 alter table public.dues drop constraint if exists dues_due_type_check;
 alter table public.dues add constraint dues_due_type_check check (due_type in ('monthly', 'tournament', 'other'));
 
+create table if not exists public.sponsorships (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  sponsor_name text not null,
+  purpose text not null default 'general' check (purpose in ('general', 'tournament', 'uniforms', 'equipment', 'other')),
+  amount numeric(10, 2) not null default 0,
+  received_amount numeric(10, 2) not null default 0,
+  applied_amount numeric(10, 2) not null default 0,
+  received_on date,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.sponsorships add column if not exists purpose text not null default 'general';
+alter table public.sponsorships add column if not exists received_amount numeric(10, 2) not null default 0;
+alter table public.sponsorships add column if not exists applied_amount numeric(10, 2) not null default 0;
+alter table public.sponsorships add column if not exists received_on date;
+alter table public.sponsorships drop constraint if exists sponsorships_purpose_check;
+alter table public.sponsorships add constraint sponsorships_purpose_check check (purpose in ('general', 'tournament', 'uniforms', 'equipment', 'other'));
+
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams(id) on delete cascade,
@@ -210,6 +230,7 @@ alter table public.roster_members enable row level security;
 alter table public.roster_parent_claims enable row level security;
 alter table public.events enable row level security;
 alter table public.dues enable row level security;
+alter table public.sponsorships enable row level security;
 alter table public.announcements enable row level security;
 alter table public.pitch_counts enable row level security;
 alter table public.conversations enable row level security;
@@ -618,6 +639,19 @@ using (
 drop policy if exists "Coaches can manage dues" on public.dues;
 create policy "Coaches can manage dues"
 on public.dues for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Coaches can read sponsorships" on public.sponsorships;
+create policy "Coaches can read sponsorships"
+on public.sponsorships for select
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Coaches can manage sponsorships" on public.sponsorships;
+create policy "Coaches can manage sponsorships"
+on public.sponsorships for all
 to authenticated
 using (team_id = public.current_team_id() and public.current_role() = 'coach')
 with check (team_id = public.current_team_id() and public.current_role() = 'coach');
