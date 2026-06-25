@@ -11,6 +11,7 @@ const supabase =
 const today = new Date().toISOString().slice(0, 10)
 const navItems = [
   ['dashboard', '▦', 'Dashboard'],
+  ['lineup', '◇', 'Lineup'],
   ['roster', '♙', 'Roster'],
   ['schedule', '▣', 'Schedule'],
   ['pitch', '⌁', 'Pitch Counts'],
@@ -260,7 +261,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
       ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages', 'account'].includes(key))
       : navItems.filter(([key]) => parentNavKeys.includes(key))
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
-  const preferredMobileKeys = ['dashboard', 'schedule', 'roster', 'messages']
+  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'account']
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
   const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
@@ -273,7 +274,10 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Brand team={team} />
+        <div className="mobile-shell-head">
+          <Brand team={team} />
+          <button aria-label="Open Menu" className="mobile-menu-button" type="button" onClick={() => setMobileMenuOpen(true)}>☰</button>
+        </div>
         <p className="sidebar-label">{isCoach ? 'Coach View' : 'Parent View'}</p>
         <nav className="nav-list" aria-label="Team navigation">
           {visibleNav.map(([key, icon, label]) => (
@@ -373,6 +377,7 @@ function MainPage(props) {
   const pageProps = { ...props, data: pageData, fullData: props.data }
   const pages = {
     dashboard: <DashboardPage {...pageProps} />,
+    lineup: isCoach ? <LineupPage {...pageProps} /> : <DashboardPage {...pageProps} />,
     roster: <RosterPage {...pageProps} editable={isCoach} />,
     schedule: <SchedulePage {...pageProps} editable={isCoach} />,
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
@@ -1173,6 +1178,30 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
         </form>
       )}
       {editable && !pitcherRoster.length && <EmptyState title="No pitchers tagged" body="Open Roster, edit a player, and check Pitcher so they can appear in pitch count decisions." />}
+      <section className="pitch-mobile-list">
+        {pitchRows.map((row) => {
+          const resting = row.resting
+          const logs = data.pitchCounts.filter((log) => log.roster_member_id === row.player.id)
+          const seasonPitches = logs.reduce((sum, log) => sum + Number(log.pitches || 0), 0)
+          return (
+            <article className={`pitch-mobile-card ${resting ? 'resting' : 'ready'}`} key={row.player.id}>
+              <div>
+                <span className="number">#{row.player.jersey_number || '-'}</span>
+                <div>
+                  <strong>{row.player.player_name}</strong>
+                  <p>{resting ? `Eligible ${formatShortDate(row.availableOn)}` : 'Available Today'}</p>
+                </div>
+              </div>
+              <dl>
+                <div><dt>Last</dt><dd>{row.last ? formatShortDate(row.last.pitched_on) : '—'}</dd></div>
+                <div><dt>Pitches</dt><dd>{row.last?.pitches || 0}</dd></div>
+                <div><dt>Season</dt><dd>{seasonPitches}</dd></div>
+              </dl>
+              {editable && <button className="soft-button" type="button" onClick={() => openPitchForm(row.player.id)}>Log Pitches</button>}
+            </article>
+          )
+        })}
+      </section>
       <section className="panel pitch-table-card">
         <h2>Pitcher Status</h2>
         <div className="pitch-table-wrap">
@@ -1219,6 +1248,99 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   )
 }
 
+function LineupPage({ data, onPage, team }) {
+  const games = data.events
+    .filter((event) => event.event_type === 'game' && event.status !== 'cancelled' && new Date(event.starts_at) >= new Date())
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
+  const nextGame = games[0]
+  const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
+  const restingIds = new Set(availability.resting.map((row) => row.player.id))
+  const positionOptions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'Bench']
+  const inningCount = 6
+  const [battingOrder, setBattingOrder] = useState(() => data.roster.map((player) => player.id))
+  const [defense, setDefense] = useState({})
+
+  function movePlayer(playerId, direction) {
+    setBattingOrder((current) => {
+      const next = [...current]
+      const index = next.indexOf(playerId)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= next.length) return current
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  function assignPosition(inning, playerId, position) {
+    setDefense((current) => ({
+      ...current,
+      [`${inning}:${playerId}`]: position,
+    }))
+  }
+
+  const orderedPlayers = battingOrder.map((id) => data.roster.find((player) => player.id === id)).filter(Boolean)
+  const unlistedPlayers = data.roster.filter((player) => !battingOrder.includes(player.id))
+
+  return (
+    <div className="page-stack lineup-page">
+      <PageHeader title="Lineup Lab" subtitle={nextGame ? `${nextGame.title} · ${formatDate(nextGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={nextGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
+      {!nextGame && <EmptyState title="No upcoming games" body="Add a game to the schedule first, then build the lineup from the game card." action="Add Schedule" onAction={() => onPage('schedule')} />}
+      <section className="lineup-intel-grid">
+        <article className="panel lineup-intel-card">
+          <span>Pitch Plan</span>
+          <strong>{availability.eligible.length} Ready · {availability.resting.length} Resting</strong>
+          <p>{availability.resting.length ? `${availability.resting.map((row) => row.player.player_name).join(', ')} should not pitch today.` : 'All tagged pitchers are eligible based on current logs.'}</p>
+        </article>
+        <article className="panel lineup-intel-card">
+          <span>Next Step</span>
+          <strong>Stats Tracking</strong>
+          <p>Start simple: plate appearances, hits, walks, strikeouts, runs, RBI, and coach notes. That is enough to power smarter 9U lineup suggestions.</p>
+        </article>
+      </section>
+      <section className="lineup-grid">
+        <article className="panel batting-card">
+          <SectionBar title="Batting Order" count={orderedPlayers.length} />
+          <div className="batting-list">
+            {orderedPlayers.map((player, index) => (
+              <div className="batting-row" key={player.id}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                  <p>{player.position || 'No positions tagged'}{restingIds.has(player.id) ? ' · Resting pitcher' : ''}</p>
+                </div>
+                <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
+                <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
+              </div>
+            ))}
+            {unlistedPlayers.map((player) => (
+              <button className="soft-button" key={player.id} type="button" onClick={() => setBattingOrder([...battingOrder, player.id])}>Add {player.player_name}</button>
+            ))}
+          </div>
+        </article>
+        <article className="panel defense-card">
+          <SectionBar title="Defense By Inning" count={inningCount} />
+          <div className="defense-board">
+            {Array.from({ length: inningCount }, (_, inningIndex) => inningIndex + 1).map((inning) => (
+              <div className="inning-card" key={inning}>
+                <strong>Inning {inning}</strong>
+                {orderedPlayers.map((player) => (
+                  <label key={player.id}>
+                    <span>#{player.jersey_number || '-'} {player.player_name}</span>
+                    <select value={defense[`${inning}:${player.id}`] || ''} onChange={(event) => assignPosition(inning, player.id, event.target.value)}>
+                      <option value="">Position</option>
+                      {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+    </div>
+  )
+}
+
 function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const [financeTab, setFinanceTab] = useState('monthly')
   const [showForm, setShowForm] = useState(false)
@@ -1226,6 +1348,9 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const [tournamentFeeMode, setTournamentFeeMode] = useState('per_player')
   const [showSponsorForm, setShowSponsorForm] = useState(false)
   const [sponsorForm, setSponsorForm] = useState(emptyForms.sponsorship)
+  const [editingSponsorshipId, setEditingSponsorshipId] = useState(null)
+  const [editingTournamentKey, setEditingTournamentKey] = useState('')
+  const [tournamentEditForm, setTournamentEditForm] = useState({ title: '', amount: '', due_date: '' })
   const [monthDate, setMonthDate] = useState(new Date(today))
   const monthKey = getMonthKey(monthDate)
   const monthDues = data.dues.filter((due) => getMonthKey(due.due_date || due.created_at) === monthKey)
@@ -1305,13 +1430,68 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
       received_on: sponsorForm.received_on || null,
     }
 
-    const { error } = await supabase.from('sponsorships').insert(payload)
+    const query = editingSponsorshipId
+      ? supabase.from('sponsorships').update(payload).eq('id', editingSponsorshipId)
+      : supabase.from('sponsorships').insert(payload)
+    const { error } = await query
     if (error) {
       setMessage(error.message)
       return
     }
     setSponsorForm(emptyForms.sponsorship)
+    setEditingSponsorshipId(null)
     setShowSponsorForm(false)
+    onRefresh()
+  }
+
+  function startEditSponsorship(sponsorship) {
+    setEditingSponsorshipId(sponsorship.id)
+    setSponsorForm({
+      sponsor_name: sponsorship.sponsor_name || '',
+      purpose: sponsorship.purpose || 'general',
+      amount: sponsorship.amount ?? '',
+      received_amount: sponsorship.received_amount ?? '',
+      applied_amount: sponsorship.applied_amount ?? '0',
+      received_on: sponsorship.received_on || today,
+      notes: sponsorship.notes || '',
+    })
+    setFinanceTab('sponsorships')
+    setShowSponsorForm(true)
+    setShowForm(false)
+  }
+
+  function startEditTournament(group) {
+    setEditingTournamentKey(group.key)
+    setTournamentEditForm({
+      title: group.title,
+      amount: String(group.amount || ''),
+      due_date: group.dueDate ? String(group.dueDate).slice(0, 10) : today,
+    })
+  }
+
+  async function updateTournamentFee(group) {
+    setMessage('')
+    const amount = Number(tournamentEditForm.amount || 0)
+    if (!tournamentEditForm.title || amount <= 0) {
+      setMessage('Tournament name and amount are required.')
+      return
+    }
+
+    const updates = await Promise.all(group.dues.map((due) => supabase
+      .from('dues')
+      .update({
+        amount,
+        due_date: tournamentEditForm.due_date || null,
+        title: tournamentEditForm.title,
+      })
+      .eq('id', due.id)))
+    const error = updates.find((result) => result.error)?.error
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setEditingTournamentKey('')
+    setTournamentEditForm({ title: '', amount: '', due_date: '' })
     onRefresh()
   }
 
@@ -1500,8 +1680,8 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           <input type="date" value={sponsorForm.received_on} onChange={(e) => setSponsorForm({ ...sponsorForm, received_on: e.target.value })} />
           <textarea placeholder="Notes, restrictions, or sponsor details" value={sponsorForm.notes} onChange={(e) => setSponsorForm({ ...sponsorForm, notes: e.target.value })} />
           <div className="form-actions">
-            <button className="primary" type="submit">Save Sponsorship</button>
-            <button className="ghost" type="button" onClick={() => setShowSponsorForm(false)}>Cancel</button>
+            <button className="primary" type="submit">{editingSponsorshipId ? 'Save Sponsorship' : 'Save Sponsorship'}</button>
+            <button className="ghost" type="button" onClick={() => { setShowSponsorForm(false); setEditingSponsorshipId(null); setSponsorForm(emptyForms.sponsorship) }}>Cancel</button>
           </div>
         </form>
       )}
@@ -1560,9 +1740,15 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
               group={group}
               key={group.key}
               onApplySponsor={applySponsorToTournament}
+              onEdit={startEditTournament}
               onPaid={markPaid}
+              onSaveEdit={updateTournamentFee}
               onUnpaid={markUnpaid}
               onWaive={waiveDue}
+              editingKey={editingTournamentKey}
+              editForm={tournamentEditForm}
+              setEditForm={setTournamentEditForm}
+              onCancelEdit={() => setEditingTournamentKey('')}
               sponsorships={data.sponsorships || []}
             />
           ))}
@@ -1576,7 +1762,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
             <MetricCard label="Applied" value={money(sponsorTotals.applied)} tone="neutral" />
             <MetricCard label="Available" value={money(sponsorTotals.available)} tone="green" />
           </section>
-          {(data.sponsorships || []).map((sponsorship) => <SponsorshipCard key={sponsorship.id} sponsorship={sponsorship} />)}
+          {(data.sponsorships || []).map((sponsorship) => <SponsorshipCard key={sponsorship.id} onEdit={startEditSponsorship} sponsorship={sponsorship} />)}
           {!(data.sponsorships || []).length && <EmptyState title="No sponsorships yet" body="Track sponsors here without automatically changing player dues." />}
         </section>
       ))}
@@ -1589,7 +1775,7 @@ function FinanceStatusCell({ due }) {
   return <span className={`finance-check ${due.status}`} aria-label={due.status}>{due.status === 'paid' ? '✓' : due.status === 'waived' ? '–' : ''}</span>
 }
 
-function TournamentFeeCard({ applications = [], group, onApplySponsor, onPaid, onUnpaid, onWaive, sponsorships = [] }) {
+function TournamentFeeCard({ applications = [], editForm, editingKey, group, onApplySponsor, onCancelEdit, onEdit, onPaid, onSaveEdit, onUnpaid, onWaive, setEditForm, sponsorships = [] }) {
   const [showSponsorApply, setShowSponsorApply] = useState(false)
   const [sponsorApplication, setSponsorApplication] = useState({ sponsorship_id: '', amount: '', notes: '' })
   const totals = getTotals(group.dues)
@@ -1621,7 +1807,17 @@ function TournamentFeeCard({ applications = [], group, onApplySponsor, onPaid, o
           <h3>{group.title}</h3>
           <p>{money(group.amount)} per player · {formatShortDate(group.dueDate)}</p>
         </div>
+        <button className="soft-button compact-card-action" type="button" onClick={() => onEdit(group)}>Edit Fee</button>
       </div>
+      {editingKey === group.key && (
+        <form className="inline-edit-form" onSubmit={(event) => { event.preventDefault(); onSaveEdit(group) }}>
+          <input placeholder="Tournament fee name" value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} required />
+          <input min="0" step="0.01" type="number" placeholder="Per player amount" value={editForm.amount} onChange={(event) => setEditForm({ ...editForm, amount: event.target.value })} required />
+          <input type="date" value={editForm.due_date} onChange={(event) => setEditForm({ ...editForm, due_date: event.target.value })} />
+          <button className="primary small" type="submit">Save</button>
+          <button className="ghost small" type="button" onClick={onCancelEdit}>Cancel</button>
+        </form>
+      )}
       <div className="tournament-fee-total">
         <strong>{money(totals.paid)} collected</strong>
         <span>/ {money(totals.amount)} total</span>
@@ -1699,7 +1895,7 @@ function TournamentFeeCard({ applications = [], group, onApplySponsor, onPaid, o
   )
 }
 
-function SponsorshipCard({ sponsorship }) {
+function SponsorshipCard({ onEdit, sponsorship }) {
   const amount = Number(sponsorship.amount || 0)
   const received = Number(sponsorship.received_amount || 0)
   const applied = Number(sponsorship.applied_amount || 0)
@@ -1714,6 +1910,7 @@ function SponsorshipCard({ sponsorship }) {
           <h3>{sponsorship.sponsor_name}</h3>
           <p>{titleCase(sponsorship.purpose || 'general')} · {formatShortDate(sponsorship.received_on || sponsorship.created_at)}</p>
         </div>
+        <button className="soft-button compact-card-action" type="button" onClick={() => onEdit(sponsorship)}>Edit Sponsor</button>
       </div>
       <div className="sponsorship-money">
         <div><span>Pledged</span><strong>{money(amount)}</strong></div>
@@ -2311,13 +2508,17 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
+  const mapHref = event.location ? getMapHref(event.location) : ''
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
       <div>
         <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <span className="desktop-detail"><Badge label={event.home_away} /></span>} {event.result && <span className="desktop-detail"><Badge label={event.result} /></span>}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-        <p>{event.location || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span></p>
+        <p>
+          {event.location || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span>
+          {mapHref && <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Map</a>}
+        </p>
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
@@ -2657,6 +2858,10 @@ function distributeSponsorCredit(dues, amount) {
 
 function roundMoney(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+function getMapHref(location) {
+  return `https://maps.apple.com/?q=${encodeURIComponent(location)}`
 }
 
 function groupTournamentDues(dues) {

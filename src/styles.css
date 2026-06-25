@@ -268,7 +268,8 @@ p {
 }
 
 .mobile-bottom-nav,
-.mobile-more-overlay {
+.mobile-more-overlay,
+.mobile-menu-button {
   display: none;
 }
 
@@ -2171,6 +2172,40 @@ p {
   padding: 0 16px;
 }
 
+.mobile-shell-head {
+  display: contents;
+}
+
+.inline-edit-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 130px 150px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline-edit-form input {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.compact-card-action {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.map-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 850;
+  padding: 0 9px;
+}
+
 .small-row > div {
   flex: 1;
 }
@@ -2471,6 +2506,64 @@ p {
   padding: 24px;
 }
 
+.pitch-mobile-list {
+  display: none;
+}
+
+.pitch-mobile-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+}
+
+.pitch-mobile-card > div:first-child {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.pitch-mobile-card strong {
+  color: var(--foreground);
+}
+
+.pitch-mobile-card p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.pitch-mobile-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.pitch-mobile-card dt {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.pitch-mobile-card dd {
+  margin: 3px 0 0;
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+.pitch-mobile-card.resting {
+  border-color: #fecaca;
+}
+
+.pitch-mobile-card.ready {
+  border-color: #bbf7d0;
+}
+
 .pitch-table-card h2 {
   margin-bottom: 20px;
   font-size: 1.05rem;
@@ -2653,6 +2746,102 @@ p {
 .pitch-card > strong {
   color: var(--foreground);
   font-size: 0.94rem;
+}
+
+.lineup-intel-grid,
+.lineup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.lineup-intel-card {
+  display: grid;
+  gap: 6px;
+}
+
+.lineup-intel-card span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.lineup-intel-card p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.lineup-grid {
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  align-items: start;
+}
+
+.batting-list,
+.defense-board {
+  display: grid;
+  gap: 10px;
+}
+
+.batting-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 36px 36px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.batting-row > span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.batting-row p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.batting-row button {
+  min-height: 34px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  padding: 0;
+}
+
+.defense-board {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.inning-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.inning-card label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  gap: 8px;
+  align-items: center;
+}
+
+.inning-card span {
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clickable-card {
@@ -3021,7 +3210,10 @@ p {
   }
 
   .tournament-sponsor-summary,
-  .sponsor-apply-form {
+  .sponsor-apply-form,
+  .inline-edit-form,
+  .lineup-intel-grid,
+  .lineup-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3106,6 +3298,15 @@ p {
 
   .pitch-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pitch-mobile-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pitch-table-card {
+    display: none;
   }
 
   .message-thread {
@@ -3261,10 +3462,33 @@ p {
     top: 0;
     z-index: 20;
     height: auto;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 16px 20px;
     background: var(--navy);
     box-shadow: 0 1px 0 var(--border);
+  }
+
+  .mobile-shell-head {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .mobile-menu-button {
+    display: grid;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    place-items: center;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 1.25rem;
+    padding: 0;
   }
 
   .sidebar .brand {
@@ -3296,7 +3520,7 @@ p {
 
   .content {
     width: 100%;
-    padding: 28px 24px calc(116px + env(safe-area-inset-bottom));
+    padding: 28px 24px calc(36px + env(safe-area-inset-bottom));
   }
 
   .dashboard-top-grid,
@@ -3560,9 +3784,10 @@ p {
 
   .action-panel,
   .broadcast-alert {
+    position: relative;
     gap: 12px;
     border-radius: 14px;
-    padding: 12px;
+    padding: 14px;
   }
 
   .action-panel > div:last-child,
@@ -3570,6 +3795,7 @@ p {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: flex-end;
   }
 
   .action-panel button,
@@ -3582,6 +3808,9 @@ p {
 
   .action-panel .icon-dismiss,
   .broadcast-alert .icon-dismiss {
+    position: absolute;
+    top: 10px;
+    right: 10px;
     width: 32px;
     min-width: 32px;
     height: 32px;
@@ -3599,6 +3828,7 @@ p {
 
   .broadcast-alert {
     align-items: flex-start;
+    padding-top: 16px;
   }
 
   .broadcast-alert > div:first-child {
@@ -3629,6 +3859,7 @@ p {
   }
 
   .mobile-bottom-nav {
+    display: none;
     position: fixed;
     right: 0;
     bottom: 0;
@@ -3702,7 +3933,7 @@ p {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 0;
+    right: 0;
     width: min(82vw, 320px);
     display: grid;
     align-content: start;
@@ -3711,7 +3942,7 @@ p {
     background: var(--navy);
     color: #ffffff;
     padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
-    box-shadow: 18px 0 42px rgba(15, 23, 42, 0.28);
+    box-shadow: -18px 0 42px rgba(15, 23, 42, 0.28);
   }
 
   .mobile-more-head {
