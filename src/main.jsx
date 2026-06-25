@@ -343,7 +343,7 @@ function mobileLabel(label) {
 function Brand({ team }) {
   return (
     <div className="brand">
-      <span className="brand-mark"><img src="/lone-star-rangers.png" alt="" /></span>
+      <span className="brand-mark">🏆</span>
       <div>
         <strong>{team?.name || 'Lone Star Rangers'}</strong>
         <p>{team?.age_group || '9U Travel'} · {team?.location || 'Texas'}</p>
@@ -1079,7 +1079,7 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
             scoreForm={scoreForms[event.id] || { our_score: event.our_score ?? '', opponent_score: event.opponent_score ?? '' }}
-            scoreEditable={editable && tab === 'past' && event.event_type === 'game'}
+            scoreEditable={editable && tab === 'past' && event.event_type === 'game' && (event.our_score === null || event.our_score === '' || event.opponent_score === null || event.opponent_score === '')}
           />
         ))}
         {!events.length && <EmptyState title={`No ${tab} events`} body={tab === 'upcoming' ? 'Add games, practices, tournaments, and meetings for the season.' : 'Past games will show here once their date has passed.'} />}
