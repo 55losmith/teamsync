@@ -24,7 +24,7 @@ const navItems = [
 const emptyForms = {
   team: { name: 'Lone Star Rangers', season: 'Summer 2026', age_group: '9U Travel', location: 'Texas', head_coach: '', monthly_dues: '150', daily_pitch_limit: '75' },
   roster: { player_name: '', jersey_number: '', position: '', bats: '', throws: '', parent_name: '', parent_email: '', parent_phone: '' },
-  event: { title: '', event_type: 'practice', starts_at: '', location: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', status: 'scheduled', notes: '' },
+  event: { title: '', event_type: 'practice', starts_at: '', location: '', event_address: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', status: 'scheduled', notes: '' },
   due: { title: 'Monthly Dues', due_type: 'monthly', roster_member_id: '', amount: '150', due_date: today, status: 'unpaid', paid_amount: '0', waived_amount: '0', notes: '' },
   sponsorship: { sponsor_name: '', purpose: 'general', amount: '', received_amount: '', applied_amount: '0', received_on: today, notes: '' },
   announcement: { title: '', body: '' },
@@ -982,6 +982,7 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
       event_type: event.event_type || 'practice',
       starts_at: toDateTimeLocal(event.starts_at),
       location: event.location || '',
+      event_address: event.event_address || '',
       opponent: event.opponent || '',
       home_away: event.home_away || 'home',
       our_score: event.our_score ?? '',
@@ -1020,7 +1021,7 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
     const title = changeType === 'cancelled' ? `Event Cancelled: ${originalEvent?.title || nextEvent.title}` : `Schedule Updated: ${nextEvent.title}`
     const body = changeType === 'cancelled'
       ? `${originalEvent?.title || nextEvent.title} has been cancelled.`
-      : `${nextEvent.title} is now set for ${formatDate(nextEvent.starts_at)} at ${nextEvent.location || 'Location TBD'}.`
+      : `${nextEvent.title} is now set for ${formatDate(nextEvent.starts_at)} at ${nextEvent.location || nextEvent.event_address || 'Location TBD'}.`
 
     const { error } = await supabase.from('notifications').insert(recipients.map((member) => ({
       body,
@@ -1067,7 +1068,8 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
             <option value="other">Other</option>
           </select>
           <input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} required />
-          <input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          <input placeholder="Location name, like City Park Field 2" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          <input className="wide-field" placeholder="Physical address for maps" value={form.event_address} onChange={(e) => setForm({ ...form, event_address: e.target.value })} />
           <input placeholder="Opponent" value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
           <select value={form.home_away} onChange={(e) => setForm({ ...form, home_away: e.target.value })}>
             <option value="home">Home</option>
@@ -2508,7 +2510,8 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
-  const mapHref = event.location ? getMapHref(event.location) : ''
+  const mapTarget = event.event_address || event.location || ''
+  const mapHref = mapTarget ? getMapHref(mapTarget) : ''
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
@@ -2516,8 +2519,9 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
         <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <span className="desktop-detail"><Badge label={event.home_away} /></span>} {event.result && <span className="desktop-detail"><Badge label={event.result} /></span>}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
         <p>
-          {event.location || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span>
-          {mapHref && <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Map</a>}
+          {event.location || event.event_address || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span>
+          {event.event_address && <span className="desktop-detail"> · {event.event_address}</span>}
+          {mapHref && <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Open Map</a>}
         </p>
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
@@ -2541,7 +2545,7 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
 function EventRow({ event }) {
   return (
     <article className="small-row">
-      <div><strong>{event.title}</strong><p>{formatDate(event.starts_at)} · {event.location || 'TBD'}</p></div>
+      <div><strong>{event.title}</strong><p>{formatDate(event.starts_at)} · {event.location || event.event_address || 'TBD'}</p></div>
       <Badge label={event.event_type} />
     </article>
   )

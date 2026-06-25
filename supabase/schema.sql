@@ -75,6 +75,7 @@ create table if not exists public.events (
   event_type text not null default 'practice' check (event_type in ('practice', 'game', 'meeting', 'other')),
   starts_at timestamptz not null,
   location text,
+  event_address text,
   opponent text,
   home_away text default 'home' check (home_away in ('home', 'away', 'neutral')),
   our_score integer,
@@ -86,6 +87,7 @@ create table if not exists public.events (
 );
 
 alter table public.events add column if not exists opponent text;
+alter table public.events add column if not exists event_address text;
 alter table public.events add column if not exists home_away text default 'home';
 alter table public.events add column if not exists status text not null default 'scheduled';
 alter table public.events drop constraint if exists events_status_check;
