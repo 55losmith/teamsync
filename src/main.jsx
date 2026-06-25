@@ -37,7 +37,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [team, setTeam] = useState(null)
-  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
   const [activePage, setActivePage] = useState('dashboard')
@@ -54,7 +54,7 @@ function App() {
       setSession(nextSession)
       setProfile(null)
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setActivePage('dashboard')
     })
 
@@ -107,12 +107,12 @@ function App() {
 
     if (!profileRow.team_id) {
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
       setLoading(false)
       return
     }
 
-    const [teamResult, rosterResult, claimResult, eventResult, dueResult, sponsorshipResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
+    const [teamResult, rosterResult, claimResult, eventResult, dueResult, sponsorshipResult, sponsorshipApplicationResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
       supabase.from('teams').select('*').eq('id', profileRow.team_id).maybeSingle(),
       supabase.from('roster_members').select('*').eq('team_id', profileRow.team_id).order('player_name'),
       supabase.from('roster_parent_claims').select('*').eq('team_id', profileRow.team_id),
@@ -127,6 +127,12 @@ function App() {
         .select('*')
         .eq('team_id', profileRow.team_id)
         .order('received_on', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('sponsorship_applications')
+        .select('*, sponsorships(sponsor_name)')
+        .eq('team_id', profileRow.team_id)
+        .order('applied_at', { ascending: false })
         .order('created_at', { ascending: false }),
       supabase
         .from('announcements')
@@ -161,7 +167,7 @@ function App() {
         .order('created_at', { ascending: false }),
     ])
 
-    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || sponsorshipResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
+    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || sponsorshipResult.error || sponsorshipApplicationResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
     if (error) setMessage(error.message)
 
     setTeam(teamResult.data || null)
@@ -171,6 +177,7 @@ function App() {
       events: eventResult.data || [],
       dues: dueResult.data || [],
       sponsorships: sponsorshipResult.data || [],
+      sponsorshipApplications: sponsorshipApplicationResult.data || [],
       announcements: announcementResult.data || [],
       pitchCounts: pitchResult.data || [],
       conversations: conversationResult.data || [],
@@ -1337,6 +1344,75 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     else onRefresh()
   }
 
+  async function applySponsorToTournament(group, application) {
+    setMessage('')
+    const sponsorship = (data.sponsorships || []).find((item) => item.id === application.sponsorship_id)
+    const amount = roundMoney(Number(application.amount || 0))
+    const available = roundMoney(Number(sponsorship?.received_amount || 0) - Number(sponsorship?.applied_amount || 0))
+    const outstanding = roundMoney(getTotals(group.dues).balance)
+
+    if (!sponsorship) {
+      setMessage('Choose a sponsorship before applying funds.')
+      return
+    }
+
+    if (amount <= 0) {
+      setMessage('Enter a sponsor credit amount greater than $0.')
+      return
+    }
+
+    if (amount > available) {
+      setMessage(`That sponsor only has ${money(available)} available.`)
+      return
+    }
+
+    if (amount > outstanding) {
+      setMessage(`This tournament only has ${money(outstanding)} outstanding.`)
+      return
+    }
+
+    const dueUpdates = distributeSponsorCredit(group.dues, amount)
+    if (!dueUpdates.length) {
+      setMessage('There is no open balance to apply this sponsorship against.')
+      return
+    }
+
+    const { error: applicationError } = await supabase.from('sponsorship_applications').insert({
+      team_id: team.id,
+      sponsorship_id: sponsorship.id,
+      tournament_key: group.key,
+      tournament_title: group.title,
+      amount,
+      applied_at: today,
+      notes: application.notes || '',
+    })
+
+    if (applicationError) {
+      setMessage(applicationError.message)
+      return
+    }
+
+    const { error: sponsorshipError } = await supabase
+      .from('sponsorships')
+      .update({ applied_amount: roundMoney(Number(sponsorship.applied_amount || 0) + amount) })
+      .eq('id', sponsorship.id)
+
+    if (sponsorshipError) {
+      setMessage(sponsorshipError.message)
+      return
+    }
+
+    const dueResults = await Promise.all(dueUpdates.map((update) => supabase.from('dues').update(update.patch).eq('id', update.id)))
+    const dueError = dueResults.find((result) => result.error)?.error
+    if (dueError) {
+      setMessage(dueError.message)
+      return
+    }
+
+    setMessage(`${money(amount)} sponsorship applied to ${group.title}.`)
+    onRefresh()
+  }
+
   return (
     <div className="page-stack finances-page">
       <PageHeader title="Finances" subtitle="Track monthly dues, tournament fees, and sponsorships" action={editable && (financeTab === 'monthly' ? '+ Assign Dues' : financeTab === 'sponsorships' ? '+ Sponsorship' : '+ New Fee')} onAction={() => openDuesForm(financeTab)} />
@@ -1478,7 +1554,18 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
         </>
       ) : financeTab === 'tournament' ? (
         <section className="finance-tournament-list">
-          {tournamentGroups.map((group) => <TournamentFeeCard group={group} key={group.key} onPaid={markPaid} onUnpaid={markUnpaid} onWaive={waiveDue} />)}
+          {tournamentGroups.map((group) => (
+            <TournamentFeeCard
+              applications={data.sponsorshipApplications || []}
+              group={group}
+              key={group.key}
+              onApplySponsor={applySponsorToTournament}
+              onPaid={markPaid}
+              onUnpaid={markUnpaid}
+              onWaive={waiveDue}
+              sponsorships={data.sponsorships || []}
+            />
+          ))}
           {!tournamentGroups.length && <EmptyState title="No tournament fees yet" body="Create a tournament fee for the whole team or a specific player." />}
         </section>
       ) : (
@@ -1502,12 +1589,29 @@ function FinanceStatusCell({ due }) {
   return <span className={`finance-check ${due.status}`} aria-label={due.status}>{due.status === 'paid' ? '✓' : due.status === 'waived' ? '–' : ''}</span>
 }
 
-function TournamentFeeCard({ group, onPaid, onUnpaid, onWaive }) {
+function TournamentFeeCard({ applications = [], group, onApplySponsor, onPaid, onUnpaid, onWaive, sponsorships = [] }) {
+  const [showSponsorApply, setShowSponsorApply] = useState(false)
+  const [sponsorApplication, setSponsorApplication] = useState({ sponsorship_id: '', amount: '', notes: '' })
   const totals = getTotals(group.dues)
   const paidCount = group.dues.filter((due) => due.status === 'paid').length
   const waivedCount = group.dues.filter((due) => due.status === 'waived').length
   const outstandingCount = group.dues.length - paidCount - waivedCount
   const percent = totals.amount ? Math.round((totals.paid / totals.amount) * 100) : 0
+  const tournamentApplications = applications.filter((application) => application.tournament_key === group.key)
+  const sponsorCredit = tournamentApplications.reduce((total, application) => total + Number(application.amount || 0), 0)
+  const availableSponsors = sponsorships
+    .map((sponsorship) => ({
+      ...sponsorship,
+      available: roundMoney(Number(sponsorship.received_amount || 0) - Number(sponsorship.applied_amount || 0)),
+    }))
+    .filter((sponsorship) => sponsorship.available > 0)
+
+  async function submitSponsorApplication(event) {
+    event.preventDefault()
+    await onApplySponsor(group, sponsorApplication)
+    setSponsorApplication({ sponsorship_id: '', amount: '', notes: '' })
+    setShowSponsorApply(false)
+  }
 
   return (
     <article className="tournament-fee-card">
@@ -1528,6 +1632,58 @@ function TournamentFeeCard({ group, onPaid, onUnpaid, onWaive }) {
         <Badge label={`${outstandingCount} outstanding`} />
         <Badge label={`${waivedCount} waived`} />
       </div>
+      <div className="tournament-sponsor-summary">
+        <div>
+          <span>Sponsor Credits</span>
+          <strong>{money(sponsorCredit)}</strong>
+        </div>
+        <div>
+          <span>Open Balance</span>
+          <strong>{money(totals.balance)}</strong>
+        </div>
+        {availableSponsors.length > 0 && totals.balance > 0 ? (
+          <button className="soft-button sponsor-apply-trigger" type="button" onClick={() => setShowSponsorApply(!showSponsorApply)}>
+            {showSponsorApply ? 'Close' : 'Apply Sponsor'}
+          </button>
+        ) : (
+          <span className="muted">{totals.balance > 0 ? 'No sponsor funds available' : 'Tournament covered'}</span>
+        )}
+      </div>
+      {showSponsorApply && (
+        <form className="sponsor-apply-form" onSubmit={submitSponsorApplication}>
+          <select value={sponsorApplication.sponsorship_id} onChange={(event) => setSponsorApplication({ ...sponsorApplication, sponsorship_id: event.target.value })} required>
+            <option value="">Select sponsor</option>
+            {availableSponsors.map((sponsorship) => (
+              <option key={sponsorship.id} value={sponsorship.id}>
+                {sponsorship.sponsor_name} · {money(sponsorship.available)} available
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="Sponsor amount to apply"
+            max={Math.min(totals.balance, availableSponsors.find((sponsorship) => sponsorship.id === sponsorApplication.sponsorship_id)?.available || totals.balance)}
+            min="0"
+            placeholder="Amount"
+            step="0.01"
+            type="number"
+            value={sponsorApplication.amount}
+            onChange={(event) => setSponsorApplication({ ...sponsorApplication, amount: event.target.value })}
+            required
+          />
+          <input placeholder="Note" value={sponsorApplication.notes} onChange={(event) => setSponsorApplication({ ...sponsorApplication, notes: event.target.value })} />
+          <button className="primary small" type="submit">Apply</button>
+          <button className="ghost small" type="button" onClick={() => setShowSponsorApply(false)}>Cancel</button>
+        </form>
+      )}
+      {tournamentApplications.length > 0 && (
+        <div className="sponsor-application-history">
+          {tournamentApplications.map((application) => (
+            <span key={application.id}>
+              {application.sponsorships?.sponsor_name || 'Sponsor'} applied {money(application.amount)}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="tournament-player-actions">
         {group.dues.map((due) => (
           <div key={due.id}>
@@ -2334,6 +2490,7 @@ function getParentScopedData(data, profile) {
     roster: claimedPlayers,
     dues: data.dues.filter((due) => claimedPlayerIds.has(due.roster_member_id)),
     sponsorships: [],
+    sponsorshipApplications: [],
     conversations,
     conversationMessages: data.conversationMessages.filter((message) => conversationIds.has(message.conversation_id)),
   }
@@ -2346,6 +2503,7 @@ function getFollowerScopedData(data) {
     parentClaims: [],
     dues: [],
     sponsorships: [],
+    sponsorshipApplications: [],
     pitchCounts: [],
     conversations: [],
     conversationMessages: [],
@@ -2466,6 +2624,39 @@ function getSponsorshipTotals(sponsorships = []) {
     total.available = Math.max(0, total.received - total.applied)
     return total
   }, { amount: 0, received: 0, applied: 0, available: 0 })
+}
+
+function distributeSponsorCredit(dues, amount) {
+  let remaining = roundMoney(amount)
+  const updates = []
+
+  dues.forEach((due) => {
+    if (remaining <= 0) return
+    const dueAmount = Number(due.amount || 0)
+    const paid = Number(due.paid_amount || 0)
+    const waived = Number(due.waived_amount || 0)
+    const balance = roundMoney(Math.max(0, dueAmount - paid - waived))
+    const credit = roundMoney(Math.min(remaining, balance))
+
+    if (credit <= 0) return
+
+    const nextWaived = roundMoney(waived + credit)
+    const nextBalance = roundMoney(Math.max(0, dueAmount - paid - nextWaived))
+    updates.push({
+      id: due.id,
+      patch: {
+        waived_amount: nextWaived,
+        status: nextBalance <= 0 ? 'waived' : 'partial',
+      },
+    })
+    remaining = roundMoney(remaining - credit)
+  })
+
+  return updates
+}
+
+function roundMoney(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
 
 function groupTournamentDues(dues) {

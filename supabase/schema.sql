@@ -136,6 +136,24 @@ alter table public.sponsorships add column if not exists received_on date;
 alter table public.sponsorships drop constraint if exists sponsorships_purpose_check;
 alter table public.sponsorships add constraint sponsorships_purpose_check check (purpose in ('general', 'tournament', 'uniforms', 'equipment', 'other'));
 
+create table if not exists public.sponsorship_applications (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  sponsorship_id uuid not null references public.sponsorships(id) on delete cascade,
+  tournament_key text not null,
+  tournament_title text not null,
+  amount numeric(10, 2) not null default 0,
+  applied_at date not null default current_date,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.sponsorship_applications add column if not exists tournament_key text not null default '';
+alter table public.sponsorship_applications add column if not exists tournament_title text not null default '';
+alter table public.sponsorship_applications add column if not exists amount numeric(10, 2) not null default 0;
+alter table public.sponsorship_applications add column if not exists applied_at date not null default current_date;
+alter table public.sponsorship_applications add column if not exists notes text;
+
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams(id) on delete cascade,
@@ -231,6 +249,7 @@ alter table public.roster_parent_claims enable row level security;
 alter table public.events enable row level security;
 alter table public.dues enable row level security;
 alter table public.sponsorships enable row level security;
+alter table public.sponsorship_applications enable row level security;
 alter table public.announcements enable row level security;
 alter table public.pitch_counts enable row level security;
 alter table public.conversations enable row level security;
@@ -652,6 +671,19 @@ using (team_id = public.current_team_id() and public.current_role() = 'coach');
 drop policy if exists "Coaches can manage sponsorships" on public.sponsorships;
 create policy "Coaches can manage sponsorships"
 on public.sponsorships for all
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach')
+with check (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Coaches can read sponsorship applications" on public.sponsorship_applications;
+create policy "Coaches can read sponsorship applications"
+on public.sponsorship_applications for select
+to authenticated
+using (team_id = public.current_team_id() and public.current_role() = 'coach');
+
+drop policy if exists "Coaches can manage sponsorship applications" on public.sponsorship_applications;
+create policy "Coaches can manage sponsorship applications"
+on public.sponsorship_applications for all
 to authenticated
 using (team_id = public.current_team_id() and public.current_role() = 'coach')
 with check (team_id = public.current_team_id() and public.current_role() = 'coach');
