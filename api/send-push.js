@@ -43,9 +43,9 @@ function createVapidHeaders(endpoint) {
   const jwt = `${header}.${body}.${signature}`
 
   return {
-    authorization: `WebPush ${jwt}`,
-    'crypto-key': `p256ecdsa=${vapidPublicKey}`,
+    authorization: `vapid t=${jwt}, k=${vapidPublicKey}`,
     ttl: '2419200',
+    urgency: 'high',
   }
 }
 
@@ -139,8 +139,10 @@ export default async function handler(request, response) {
 
   let sent = 0
   let skipped = 0
+  let failed = 0
   const deadSubscriptionIds = []
   const sentNotificationIds = []
+  const failures = []
 
   for (const notification of notifications) {
     const preference = preferencesByProfile.get(notification.recipient_id) || { push_enabled: true }
@@ -153,24 +155,43 @@ export default async function handler(request, response) {
     const recipientSubscriptions = subscriptionsByProfile.get(notification.recipient_id) || []
     if (!recipientSubscriptions.length) {
       skipped += 1
-      sentNotificationIds.push(notification.id)
       continue
     }
 
+    let delivered = false
     for (const subscription of recipientSubscriptions) {
       try {
         const pushResponse = await fetch(subscription.endpoint, {
           headers: createVapidHeaders(subscription.endpoint),
           method: 'POST',
         })
-        if (pushResponse.ok || pushResponse.status === 201) sent += 1
-        else if (pushResponse.status === 404 || pushResponse.status === 410) deadSubscriptionIds.push(subscription.id)
+        if (pushResponse.ok || pushResponse.status === 201) {
+          sent += 1
+          delivered = true
+        } else if (pushResponse.status === 404 || pushResponse.status === 410) {
+          deadSubscriptionIds.push(subscription.id)
+          failed += 1
+        } else {
+          failed += 1
+          failures.push({
+            endpoint_host: new URL(subscription.endpoint).host,
+            notification_id: notification.id,
+            status: pushResponse.status,
+            status_text: pushResponse.statusText,
+          })
+        }
       } catch (error) {
         if (error.statusCode === 404 || error.statusCode === 410) deadSubscriptionIds.push(subscription.id)
+        failed += 1
+        failures.push({
+          endpoint_host: new URL(subscription.endpoint).host,
+          error: error.message || 'Push request failed',
+          notification_id: notification.id,
+        })
       }
     }
 
-    sentNotificationIds.push(notification.id)
+    if (delivered) sentNotificationIds.push(notification.id)
   }
 
   await Promise.all([
@@ -182,5 +203,5 @@ export default async function handler(request, response) {
       : Promise.resolve(),
   ])
 
-  return response.status(200).json({ sent, skipped })
+  return response.status(200).json({ failed, failures: failures.slice(0, 5), sent, skipped })
 }

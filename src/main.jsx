@@ -25,16 +25,20 @@ async function sendPendingPushes(teamId, notificationIds = []) {
   const token = data.session?.access_token
   if (!token) return
 
-  await fetch('/api/send-push', {
-    body: JSON.stringify({ notification_ids: notificationIds, team_id: teamId }),
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-    method: 'POST',
-  }).catch(() => {
-    // Push delivery should never block the core in-app action.
-  })
+  try {
+    const response = await fetch('/api/send-push', {
+      body: JSON.stringify({ notification_ids: notificationIds, team_id: teamId }),
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    })
+
+    return response.json().catch(() => null)
+  } catch {
+    return null
+  }
 }
 
 const today = new Date().toISOString().slice(0, 10)
@@ -2042,10 +2046,12 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
       return
     }
 
-    await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.notification_id).filter(Boolean) || [])
+    const pushResult = await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.notification_id).filter(Boolean) || [])
 
     setForm(emptyForms.announcement)
-    setMessage('Broadcast sent.')
+    if (pushResult?.failed) setMessage(`Broadcast sent, but push delivery failed for ${pushResult.failed} device${pushResult.failed === 1 ? '' : 's'}.`)
+    else if (pushResult?.sent) setMessage(`Broadcast sent. ${pushResult.sent} push notification${pushResult.sent === 1 ? '' : 's'} delivered.`)
+    else setMessage('Broadcast sent.')
     setShowForm(false)
     setMode('broadcast')
     onRefresh()
