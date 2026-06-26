@@ -2031,23 +2031,18 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
       return
     }
 
-    const recipients = data.members.filter((member) => ['parent', 'follower'].includes(member.role))
-    if (recipients.length) {
-      const { data: createdNotifications, error: notificationError } = await supabase.from('notifications').insert(recipients.map((member) => ({
-        body: form.body,
-        notification_type: 'broadcast',
-        recipient_id: member.id,
-        team_id: team.id,
-        title: form.title,
-      }))).select('id')
+    const { data: createdNotifications, error: notificationError } = await supabase.rpc('create_broadcast_notifications', {
+      p_body: form.body,
+      p_team_id: team.id,
+      p_title: form.title,
+    })
 
-      if (notificationError) {
-        setMessage(notificationError.message)
-        return
-      }
-
-      await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.id) || [])
+    if (notificationError) {
+      setMessage(notificationError.message)
+      return
     }
+
+    await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.notification_id).filter(Boolean) || [])
 
     setForm(emptyForms.announcement)
     setMessage('Broadcast sent.')
