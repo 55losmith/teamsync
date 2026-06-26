@@ -1,0 +1,20 @@
+{
+  "name": "TeamSync",
+  "short_name": "TeamSync",
+  "description": "Travel baseball team operations for coaches and families.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#101827",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/teamsync-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "productivity", "lifestyle"]
+}

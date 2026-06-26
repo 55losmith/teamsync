@@ -5,8 +5,18 @@ import './styles.css'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
 const supabase =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+
+const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = `${base64String}${padding}`.replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)))
+}
 
 const today = new Date().toISOString().slice(0, 10)
 const navItems = [
@@ -45,6 +55,12 @@ function App() {
 
   useEffect(() => {
     if (!supabase) return
+
+    if (pushSupported) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // PWA support should never block login or the core app.
+      })
+    }
 
     supabase.auth.getSession().then(({ data: authData }) => {
       setSession(authData.session)
@@ -2175,7 +2191,116 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
           <p className="form-help">This changes the password for the account you are signed into right now.</p>
         </form>
       </section>
+      <PushNotificationsPanel onRefresh={onRefresh} profile={profile} setMessage={setMessage} team={team} />
     </div>
+  )
+}
+
+function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
+  const [permission, setPermission] = useState(pushSupported ? Notification.permission : 'unsupported')
+  const [saving, setSaving] = useState(false)
+
+  async function enablePush() {
+    setMessage('')
+
+    if (!pushSupported) {
+      setMessage('This browser does not support web push notifications.')
+      return
+    }
+
+    if (!vapidPublicKey) {
+      setMessage('Push notifications need VITE_VAPID_PUBLIC_KEY before they can be enabled.')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const nextPermission = permission === 'granted' ? 'granted' : await Notification.requestPermission()
+      setPermission(nextPermission)
+
+      if (nextPermission !== 'granted') {
+        setMessage('Notifications were not enabled. You can allow them later from your browser settings.')
+        return
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          userVisibleOnly: true,
+        })
+      }
+
+      const subscriptionJson = subscription.toJSON()
+      const endpoint = subscription.endpoint
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        auth: subscriptionJson.keys?.auth || null,
+        endpoint,
+        p256dh: subscriptionJson.keys?.p256dh || null,
+        profile_id: profile.id,
+        team_id: team.id,
+        user_agent: navigator.userAgent,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'endpoint' })
+
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+
+      setMessage('Browser notifications are enabled for this device.')
+      onRefresh()
+    } catch (error) {
+      setMessage(error.message || 'Unable to enable browser notifications.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function disablePush() {
+    setMessage('')
+
+    if (!pushSupported) {
+      setMessage('This browser does not support web push notifications.')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.getSubscription()
+      if (subscription) {
+        await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint)
+        await subscription.unsubscribe()
+      }
+
+      setMessage('Browser notifications are disabled on this device.')
+      onRefresh()
+    } catch (error) {
+      setMessage(error.message || 'Unable to disable browser notifications.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="panel push-panel">
+      <div>
+        <span className="form-section-title">Notifications</span>
+        <h2>Browser Push</h2>
+        <p>Turn this on for game changes, messages, dues, and team broadcasts on this device.</p>
+      </div>
+      <div className="push-actions">
+        <button className="primary" disabled={saving || permission === 'granted'} type="button" onClick={enablePush}>
+          {permission === 'granted' ? 'Enabled' : saving ? 'Saving...' : 'Enable Push'}
+        </button>
+        <button className="ghost" disabled={saving || !pushSupported} type="button" onClick={disablePush}>Disable</button>
+      </div>
+      <small>{pushSupported ? `Browser permission: ${permission}` : 'This browser does not support web push.'}</small>
+    </section>
   )
 }
 

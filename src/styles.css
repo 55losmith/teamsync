@@ -556,6 +556,33 @@ p {
   padding: 0 14px;
 }
 
+.push-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.push-panel h2 {
+  margin-top: 4px;
+}
+
+.push-panel p,
+.push-panel small {
+  color: var(--muted);
+}
+
+.push-panel small {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+}
+
+.push-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .member-directory {
   display: grid;
   gap: 14px;
@@ -3125,6 +3152,7 @@ p {
   .grid-form,
   .form-row,
   .claim-panel,
+  .push-panel,
   .invite-composer {
     grid-template-columns: 1fr;
   }
@@ -3336,6 +3364,10 @@ p {
     border-radius: 8px;
     background: var(--surface-soft);
     padding: 0 8px;
+  }
+
+  .push-actions {
+    justify-content: flex-start;
   }
 
   .segmented {
