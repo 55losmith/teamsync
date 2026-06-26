@@ -140,6 +140,8 @@ export default async function handler(request, response) {
   let sent = 0
   let skipped = 0
   let failed = 0
+  let noSubscription = 0
+  let preferenceDisabled = 0
   const deadSubscriptionIds = []
   const sentNotificationIds = []
   const failures = []
@@ -148,6 +150,7 @@ export default async function handler(request, response) {
     const preference = preferencesByProfile.get(notification.recipient_id) || { push_enabled: true }
     if (!notificationAllowed(preference, notification.notification_type)) {
       skipped += 1
+      preferenceDisabled += 1
       sentNotificationIds.push(notification.id)
       continue
     }
@@ -155,6 +158,7 @@ export default async function handler(request, response) {
     const recipientSubscriptions = subscriptionsByProfile.get(notification.recipient_id) || []
     if (!recipientSubscriptions.length) {
       skipped += 1
+      noSubscription += 1
       continue
     }
 
@@ -203,5 +207,12 @@ export default async function handler(request, response) {
       : Promise.resolve(),
   ])
 
-  return response.status(200).json({ failed, failures: failures.slice(0, 5), sent, skipped })
+  return response.status(200).json({
+    failed,
+    failures: failures.slice(0, 5),
+    no_subscription: noSubscription,
+    preference_disabled: preferenceDisabled,
+    sent,
+    skipped,
+  })
 }
