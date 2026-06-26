@@ -633,7 +633,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const broadcastDismissKey = recentBroadcast ? `teamsync:broadcast-alert:${profile.id}:${recentBroadcast.id}` : ''
   const [dismissedFinanceKey, setDismissedFinanceKey] = useState(() => localStorage.getItem('teamsync:dismissed-finance-alert') || '')
   const [dismissedBroadcastKey, setDismissedBroadcastKey] = useState(() => localStorage.getItem('teamsync:dismissed-broadcast-alert') || '')
-  const showFinanceAction = actionCounts.openDues > 0 && (!isParent && !isFollower ? dismissedFinanceKey !== financeDismissKey : true)
+  const showFinanceAction = actionCounts.openDues > 0 && dismissedFinanceKey !== financeDismissKey
   const hasActions = actionCounts.unreadMessages > 0 || showFinanceAction
   const showBroadcastAlert = recentBroadcast && isRecentBroadcast(recentBroadcast) && dismissedBroadcastKey !== broadcastDismissKey
   const dueTotals = getTotals(data.dues)
@@ -669,7 +669,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             {actionCounts.unreadMessages > 0 && <button type="button" onClick={() => onPage('messages')}>Open Messages</button>}
             {showFinanceAction && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
           </div>
-          {!isParent && !isFollower && showFinanceAction && <button aria-label="Dismiss Finance Alert" className="icon-dismiss" title="Dismiss Finance Alert" type="button" onClick={dismissFinanceAction}>×</button>}
+          {showFinanceAction && <button aria-label="Dismiss Finance Alert" className="icon-dismiss" title="Dismiss Finance Alert" type="button" onClick={dismissFinanceAction}>×</button>}
         </section>
       )}
       {showBroadcastAlert && (
