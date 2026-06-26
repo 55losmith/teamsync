@@ -1683,7 +1683,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           <div>
             <span className="alert-dot" />
             <div>
-              <strong>{openDues.length} due{openDues.length === 1 ? '' : 's'} need attention</strong>
+              <strong>{openDues.length} due{openDues.length === 1 ? '' : 's'} needs attention</strong>
               <p>{editable ? 'Review unpaid or partial player balances before the next event.' : 'You have an outstanding balance for your claimed player.'}</p>
             </div>
           </div>
