@@ -596,7 +596,7 @@ p {
   min-height: 74px;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
@@ -625,7 +625,19 @@ p {
 .member-row small {
   display: block;
   color: var(--muted);
-  line-height: 1.45;
+  line-height: 1.35;
+}
+
+.member-row p {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-row small {
+  font-size: 0.76rem;
   overflow-wrap: anywhere;
 }
 
@@ -640,19 +652,13 @@ p {
   justify-self: end;
 }
 
-.member-actions .badge {
-  min-height: 24px;
-  border-radius: 8px;
-  padding: 3px 8px;
-}
-
 .member-row button {
-  min-height: 28px;
+  min-height: 30px;
   border: 1px solid var(--border);
   background: #ffffff;
   color: var(--muted-strong);
   font-size: 0.78rem;
-  padding: 0 9px;
+  padding: 0 10px;
 }
 
 .form-row {
@@ -1370,12 +1376,11 @@ p {
 
 .dashboard-page > .action-panel,
 .dashboard-page > .broadcast-alert {
-  padding-right: 48px;
-  padding-bottom: 46px;
+  padding: 14px 48px 48px 16px;
 }
 
-.dashboard-page > .action-panel > div:last-child,
-.dashboard-page > .broadcast-alert > div:last-child {
+.dashboard-page > .action-panel .banner-actions,
+.dashboard-page > .broadcast-alert .banner-actions {
   position: absolute;
   right: 14px;
   bottom: 12px;
@@ -1383,6 +1388,12 @@ p {
   align-items: center;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.dashboard-page > .action-panel .icon-dismiss,
+.dashboard-page > .broadcast-alert .icon-dismiss {
+  top: 10px;
+  right: 10px;
 }
 
 .compact-action {

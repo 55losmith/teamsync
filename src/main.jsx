@@ -626,11 +626,11 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               ].filter(Boolean).join(' · ')}</p>
             </div>
           </div>
-          <div>
+          <div className="banner-actions">
             {actionCounts.unreadMessages > 0 && <button type="button" onClick={() => onPage('messages')}>Open Messages</button>}
             {showFinanceAction && <button type="button" onClick={() => onPage('dues')}>View Finances</button>}
-            {!isParent && !isFollower && showFinanceAction && <button aria-label="Dismiss Finance Alert" className="icon-dismiss" title="Dismiss Finance Alert" type="button" onClick={dismissFinanceAction}>×</button>}
           </div>
+          {!isParent && !isFollower && showFinanceAction && <button aria-label="Dismiss Finance Alert" className="icon-dismiss" title="Dismiss Finance Alert" type="button" onClick={dismissFinanceAction}>×</button>}
         </section>
       )}
       {showBroadcastAlert && (
@@ -644,10 +644,10 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
               <span>{formatDate(recentBroadcast.created_at)}</span>
             </div>
           </div>
-          <div>
+          <div className="banner-actions">
             <button type="button" onClick={() => onPage('messages')}>Open</button>
-            <button aria-label="Dismiss Broadcast Alert" className="icon-dismiss" title="Dismiss Broadcast Alert" type="button" onClick={dismissBroadcastAlert}>×</button>
           </div>
+          <button aria-label="Dismiss Broadcast Alert" className="icon-dismiss" title="Dismiss Broadcast Alert" type="button" onClick={dismissBroadcastAlert}>×</button>
         </section>
       )}
       {(isParent || isFollower) && (
@@ -2305,7 +2305,6 @@ function MemberRow({ member, parentClaims, roster, setMessage }) {
         )}
       </div>
       <div className="member-actions">
-        <Badge label={member.role} />
         <button type="button" onClick={sendReset}>Reset</button>
       </div>
     </article>
