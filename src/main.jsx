@@ -1026,8 +1026,21 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
   const [form, setForm] = useState(emptyForms.event)
   const [editingEventId, setEditingEventId] = useState(null)
   const [scoreForms, setScoreForms] = useState({})
+  const [statsEventId, setStatsEventId] = useState('')
+  const [scheduleBoxScore, setScheduleBoxScore] = useState({})
   const now = new Date()
   const events = data.events.filter((event) => tab === 'upcoming' ? new Date(event.starts_at) >= now : new Date(event.starts_at) < now)
+  const statsEvent = data.events.find((event) => event.id === statsEventId)
+
+  useEffect(() => {
+    if (!statsEventId) return
+    try {
+      const saved = JSON.parse(localStorage.getItem(`teamsync:lineup:${statsEventId}`) || '{}')
+      setScheduleBoxScore(saved.boxScore || {})
+    } catch {
+      setScheduleBoxScore({})
+    }
+  }, [statsEventId])
 
   async function submit(event) {
     event.preventDefault()
@@ -1140,6 +1153,14 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
     else onRefresh()
   }
 
+  function saveScheduleBoxScore() {
+    if (!statsEvent) return
+    const key = `teamsync:lineup:${statsEvent.id}`
+    const current = JSON.parse(localStorage.getItem(key) || '{}')
+    localStorage.setItem(key, JSON.stringify({ ...current, boxScore: scheduleBoxScore, savedAt: new Date().toISOString() }))
+    setMessage('Box score saved for this game.')
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Schedule" subtitle={`${data.events.length} events this season`} action={editable && '+ Add Event'} onAction={() => { setEditingEventId(null); setForm(emptyForms.event); setShowForm(!showForm) }} />
@@ -1184,14 +1205,25 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
             key={event.id}
             onCancel={() => cancelEvent(event)}
             onEdit={() => startEdit(event)}
+            onStats={() => setStatsEventId(event.id)}
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
             scoreForm={scoreForms[event.id] || { our_score: event.our_score ?? '', opponent_score: event.opponent_score ?? '' }}
-            scoreEditable={editable && tab === 'past' && event.event_type === 'game' && (event.our_score === null || event.our_score === '' || event.opponent_score === null || event.opponent_score === '')}
+            scoreEditable={editable && tab === 'past' && event.event_type === 'game'}
           />
         ))}
         {!events.length && <EmptyState title={`No ${tab} events`} body={tab === 'upcoming' ? 'Add games, practices, tournaments, and meetings for the season.' : 'Past games will show here once their date has passed.'} />}
       </div>
+      {editable && statsEvent && (
+        <section className="panel box-score-card">
+          <SectionBar title={`Box Score · ${statsEvent.title}`} action="Close" onAction={() => setStatsEventId('')} />
+          <BoxScoreEditor boxScore={scheduleBoxScore} onBoxScore={setScheduleBoxScore} players={data.roster} />
+          <div className="lineup-save-row">
+            <small>Use this during the game or enter stats after it ends.</small>
+            <button className="primary fit" type="button" onClick={saveScheduleBoxScore}>Save Box Score</button>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
@@ -1421,38 +1453,25 @@ function LineupPage({ data, onPage, team }) {
       <PageHeader title="Lineup Lab" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
       {!selectedGame && <EmptyState title="No games yet" body="Add games to the schedule first, then build each lineup from here." action="Add Schedule" onAction={() => onPage('schedule')} />}
       {selectedGame && (
-        <section className="panel lineup-control-card">
-          <label>Game
-            <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
-              {games.map((game) => <option key={game.id} value={game.id}>{game.title} · {formatDate(game.starts_at)}</option>)}
-            </select>
-          </label>
-          <div className="inning-switcher" role="group" aria-label="Choose inning">
-            {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
-              <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>Inning {inning}</button>
-            ))}
-          </div>
-          <div className="lineup-save-row">
-            <small>{savedLineupAt ? `Saved ${formatDate(savedLineupAt)}` : 'Save after setting the order or each inning.'}</small>
-            <div>
-              <button className="soft-button" type="button" onClick={saveLineup}>Save</button>
-              <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
+        <section className="lineup-day-grid">
+          <article className="panel lineup-control-card">
+            <label>Game
+              <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
+                {games.map((game) => <option key={game.id} value={game.id}>{game.title} · {formatDate(game.starts_at)}</option>)}
+              </select>
+            </label>
+            <div className="lineup-save-row">
+              <small>{savedLineupAt ? `Saved ${formatDate(savedLineupAt)}` : 'Select the scheduled game, then save the plan as it changes.'}</small>
+              <button className="soft-button" type="button" onClick={saveLineup}>Save Day Plan</button>
             </div>
-          </div>
+          </article>
+          <article className="panel lineup-intel-card">
+            <span>Pitch Plan</span>
+            <strong>{availability.eligible.length} Ready · {availability.resting.length} Resting</strong>
+            <p>{availability.resting.length ? `${availability.resting.map((row) => row.player.player_name).join(', ')} should not pitch today.` : 'All tagged pitchers are eligible based on current logs.'}</p>
+          </article>
         </section>
       )}
-      <section className="lineup-intel-grid">
-        <article className="panel lineup-intel-card">
-          <span>Pitch Plan</span>
-          <strong>{availability.eligible.length} Ready · {availability.resting.length} Resting</strong>
-          <p>{availability.resting.length ? `${availability.resting.map((row) => row.player.player_name).join(', ')} should not pitch today.` : 'All tagged pitchers are eligible based on current logs.'}</p>
-        </article>
-        <article className="panel lineup-intel-card">
-          <span>Next Step</span>
-          <strong>Box Score</strong>
-          <p>Track simple player stats during a game or enter them after. That is enough to start building smarter lineup suggestions.</p>
-        </article>
-      </section>
       <section className="lineup-grid">
         <article className="panel batting-card">
           <SectionBar title="Batting Order" count={orderedPlayers.length} />
@@ -1475,6 +1494,11 @@ function LineupPage({ data, onPage, team }) {
         </article>
         <article className="panel defense-card">
           <SectionBar title={`Defense · Inning ${activeInning}`} count={activeInningDefense.filter((row) => row.position).length} />
+          <div className="inning-switcher" role="group" aria-label="Choose inning">
+            {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
+              <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>Inning {inning}</button>
+            ))}
+          </div>
           <div className="inning-card active-inning-card">
             {orderedPlayers.map((player) => (
               <label key={player.id}>
@@ -1486,36 +1510,65 @@ function LineupPage({ data, onPage, team }) {
               </label>
             ))}
           </div>
+          <div className="lineup-save-row">
+            <small>Save this inning, then move to the next defensive look.</small>
+            <div>
+              <button className="soft-button" type="button" onClick={saveLineup}>Save Inning</button>
+              <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
+            </div>
+          </div>
         </article>
       </section>
       <section className="panel box-score-card">
         <SectionBar title="Simple Box Score" count={orderedPlayers.length} />
-        <div className="box-score-table">
-          <div className="box-score-head">
-            <span>Player</span>
-            <span>AB</span>
-            <span>H</span>
-            <span>BB</span>
-            <span>SO</span>
-            <span>R</span>
-            <span>RBI</span>
-          </div>
-          {orderedPlayers.map((player) => (
-            <div className="box-score-row" key={player.id}>
-              <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
-              {['ab', 'h', 'bb', 'so', 'r', 'rbi'].map((stat) => (
-                <input key={stat} inputMode="numeric" min="0" type="number" value={boxScore[player.id]?.[stat] || ''} onChange={(event) => updateStat(player.id, stat, event.target.value)} />
-              ))}
-            </div>
-          ))}
-        </div>
-        <label>Coach Notes<textarea placeholder="Good swings, base running notes, defensive notes..." value={boxScore.notes || ''} onChange={(event) => setBoxScore((current) => ({ ...current, notes: event.target.value }))} /></label>
+        <BoxScoreEditor boxScore={boxScore} onBoxScore={setBoxScore} onStat={updateStat} players={orderedPlayers} />
         <div className="lineup-save-row">
           <small>Saved with the lineup for this game.</small>
           <button className="primary fit" type="button" onClick={saveLineup}>Save Stats</button>
         </div>
       </section>
     </div>
+  )
+}
+
+function BoxScoreEditor({ boxScore, onBoxScore, onStat, players }) {
+  function update(playerId, stat, value) {
+    if (onStat) {
+      onStat(playerId, stat, value)
+      return
+    }
+    onBoxScore((current) => ({
+      ...current,
+      [playerId]: {
+        ...(current[playerId] || {}),
+        [stat]: value,
+      },
+    }))
+  }
+
+  return (
+    <>
+      <div className="box-score-table">
+        <div className="box-score-head">
+          <span>Player</span>
+          <span>AB</span>
+          <span>H</span>
+          <span>BB</span>
+          <span>SO</span>
+          <span>R</span>
+          <span>RBI</span>
+        </div>
+        {players.map((player) => (
+          <div className="box-score-row" key={player.id}>
+            <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+            {['ab', 'h', 'bb', 'so', 'r', 'rbi'].map((stat) => (
+              <input key={stat} inputMode="numeric" min="0" type="number" value={boxScore[player.id]?.[stat] || ''} onChange={(event) => update(player.id, stat, event.target.value)} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <label>Coach Notes<textarea placeholder="Good swings, base running notes, defensive notes..." value={boxScore.notes || ''} onChange={(event) => onBoxScore((current) => ({ ...current, notes: event.target.value }))} /></label>
+    </>
   )
 }
 
@@ -1814,7 +1867,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
           <div>
             <span className="alert-dot" />
             <div>
-              <strong>{openDues.length} due{openDues.length === 1 ? '' : 's'} needs attention</strong>
+              <strong>{openDues.length} due{openDues.length === 1 ? '' : 's'} need attention</strong>
               <p>{editable ? 'Review unpaid or partial player balances before the next event.' : 'You have an outstanding balance for your claimed player.'}</p>
             </div>
           </div>
@@ -2941,7 +2994,7 @@ function PositionPicker({ onChange, value }) {
   )
 }
 
-function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
+function EventCard({ editable, event, onCancel, onEdit, onStats, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
@@ -2958,6 +3011,7 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
+            {event.event_type === 'game' && <button type="button" onClick={onStats}>Stats</button>}
             <button type="button" onClick={onEdit}>Edit</button>
             {!isCancelled && <button type="button" onClick={onCancel}>Cancel Event</button>}
           </div>
