@@ -2304,8 +2304,10 @@ function MemberRow({ member, parentClaims, roster, setMessage }) {
           <small>{claimedPlayers.length ? `Players: ${claimedPlayers.map((player) => player.player_name).join(', ')}` : 'No players claimed yet'}</small>
         )}
       </div>
-      <Badge label={member.role} />
-      <button type="button" onClick={sendReset}>Reset</button>
+      <div className="member-actions">
+        <Badge label={member.role} />
+        <button type="button" onClick={sendReset}>Reset</button>
+      </div>
     </article>
   )
 }
