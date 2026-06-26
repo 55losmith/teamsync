@@ -2277,7 +2277,47 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
 
 function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
   const [permission, setPermission] = useState(pushSupported ? Notification.permission : 'unsupported')
+  const [deviceEnabled, setDeviceEnabled] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  async function refreshPushDeviceState() {
+    if (!pushSupported) {
+      setDeviceEnabled(false)
+      return
+    }
+
+    setChecking(true)
+
+    try {
+      setPermission(Notification.permission)
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        setDeviceEnabled(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('push_subscriptions')
+        .select('id, enabled')
+        .eq('endpoint', subscription.endpoint)
+        .eq('profile_id', profile.id)
+        .eq('team_id', team.id)
+        .maybeSingle()
+
+      setDeviceEnabled(Boolean(data?.enabled && !error))
+    } catch {
+      setDeviceEnabled(false)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshPushDeviceState()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.id, team.id])
 
   async function enablePush() {
     setMessage('')
@@ -2305,12 +2345,15 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
 
       const registration = await navigator.serviceWorker.ready
       let subscription = await registration.pushManager.getSubscription()
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-          userVisibleOnly: true,
-        })
+      if (subscription) {
+        await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint)
+        await subscription.unsubscribe()
       }
+
+      subscription = await registration.pushManager.subscribe({
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        userVisibleOnly: true,
+      })
 
       const subscriptionJson = subscription.toJSON()
       const endpoint = subscription.endpoint
@@ -2329,6 +2372,7 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
         return
       }
 
+      setDeviceEnabled(true)
       setMessage('Browser notifications are enabled for this device.')
       onRefresh()
     } catch (error) {
@@ -2356,6 +2400,15 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
         await subscription.unsubscribe()
       }
 
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('profile_id', profile.id)
+        .eq('team_id', team.id)
+        .ilike('user_agent', `%${navigator.userAgent.slice(0, 40)}%`)
+
+      setDeviceEnabled(false)
+      setPermission(Notification.permission)
       setMessage('Browser notifications are disabled on this device.')
       onRefresh()
     } catch (error) {
@@ -2368,7 +2421,7 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
   async function testPush() {
     setMessage('')
 
-    if (!pushSupported || permission !== 'granted') {
+    if (!pushSupported || permission !== 'granted' || !deviceEnabled) {
       setMessage('Enable push notifications on this device first.')
       return
     }
@@ -2413,13 +2466,13 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
         <p>Turn this on for game changes, messages, dues, and team broadcasts on this device.</p>
       </div>
       <div className="push-actions">
-        <button className="primary" disabled={saving || permission === 'granted'} type="button" onClick={enablePush}>
-          {permission === 'granted' ? 'Enabled' : saving ? 'Saving...' : 'Enable Push'}
+        <button className="primary" disabled={saving || checking || !pushSupported || deviceEnabled} type="button" onClick={enablePush}>
+          {saving ? 'Saving...' : deviceEnabled ? 'Enabled' : permission === 'granted' ? 'Re-Enable Push' : 'Enable Push'}
         </button>
-        <button className="ghost" disabled={saving || !pushSupported} type="button" onClick={disablePush}>Disable</button>
-        <button className="ghost" disabled={saving || permission !== 'granted'} type="button" onClick={testPush}>Test Push</button>
+        <button className="ghost" disabled={saving || checking || !pushSupported} type="button" onClick={disablePush}>Reset Device</button>
+        <button className="ghost" disabled={saving || checking || permission !== 'granted' || !deviceEnabled} type="button" onClick={testPush}>Test Push</button>
       </div>
-      <small>{pushSupported ? `Browser permission: ${permission}` : 'This browser does not support web push.'}</small>
+      <small>{pushSupported ? `Browser permission: ${permission} · TeamSync device: ${checking ? 'checking' : deviceEnabled ? 'enabled' : 'not enabled'}` : 'This browser does not support web push.'}</small>
     </section>
   )
 }
