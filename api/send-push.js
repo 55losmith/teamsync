@@ -18,6 +18,31 @@ function bufferToBase64Url(value) {
   return Buffer.from(value).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
+function derToJoseSignature(signature) {
+  let offset = 0
+  if (signature[offset++] !== 0x30) throw new Error('Invalid ECDSA signature')
+
+  const sequenceLength = signature[offset++]
+  if (sequenceLength + 2 !== signature.length) throw new Error('Invalid ECDSA signature length')
+
+  if (signature[offset++] !== 0x02) throw new Error('Invalid ECDSA signature')
+  const rLength = signature[offset++]
+  let r = signature.subarray(offset, offset + rLength)
+  offset += rLength
+
+  if (signature[offset++] !== 0x02) throw new Error('Invalid ECDSA signature')
+  const sLength = signature[offset++]
+  let s = signature.subarray(offset, offset + sLength)
+
+  if (r.length > 32) r = r.subarray(r.length - 32)
+  if (s.length > 32) s = s.subarray(s.length - 32)
+
+  return Buffer.concat([
+    Buffer.concat([Buffer.alloc(32 - r.length), r]),
+    Buffer.concat([Buffer.alloc(32 - s.length), s]),
+  ])
+}
+
 function createVapidHeaders(endpoint) {
   const audience = new URL(endpoint).origin
   const publicKeyBytes = base64UrlToBuffer(vapidPublicKey)
@@ -39,7 +64,7 @@ function createVapidHeaders(endpoint) {
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 12,
     sub: vapidSubject,
   }))
-  const signature = bufferToBase64Url(sign('sha256', Buffer.from(`${header}.${body}`), privateKey))
+  const signature = bufferToBase64Url(derToJoseSignature(sign('sha256', Buffer.from(`${header}.${body}`), privateKey)))
   const jwt = `${header}.${body}.${signature}`
 
   return {
