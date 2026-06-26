@@ -2365,6 +2365,46 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
     }
   }
 
+  async function testPush() {
+    setMessage('')
+
+    if (!pushSupported || permission !== 'granted') {
+      setMessage('Enable push notifications on this device first.')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) {
+        setMessage('Log in again before testing push.')
+        return
+      }
+
+      const response = await fetch('/api/send-push', {
+        body: JSON.stringify({ team_id: team.id, test_self: true }),
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+      })
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) setMessage(result?.error || 'Test push failed.')
+      else if (result?.sent) setMessage(`Test push sent to ${result.sent} device${result.sent === 1 ? '' : 's'}.`)
+      else if (result?.no_subscription) setMessage('No push-enabled device is saved for this account. Tap Enable Push again from the Home Screen app.')
+      else if (result?.failed) setMessage(`Test push failed for ${result.failed} device${result.failed === 1 ? '' : 's'}.`)
+      else setMessage('Test push did not find a device to notify.')
+    } catch (error) {
+      setMessage(error.message || 'Test push failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <section className="panel push-panel">
       <div>
@@ -2377,6 +2417,7 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
           {permission === 'granted' ? 'Enabled' : saving ? 'Saving...' : 'Enable Push'}
         </button>
         <button className="ghost" disabled={saving || !pushSupported} type="button" onClick={disablePush}>Disable</button>
+        <button className="ghost" disabled={saving || permission !== 'granted'} type="button" onClick={testPush}>Test Push</button>
       </div>
       <small>{pushSupported ? `Browser permission: ${permission}` : 'This browser does not support web push.'}</small>
     </section>

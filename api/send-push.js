@@ -10,6 +10,16 @@ const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
 const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:team@example.com'
 
+const defaultNotificationPreferences = {
+  broadcasts_enabled: true,
+  dues_enabled: true,
+  lineup_enabled: true,
+  messages_enabled: true,
+  pitch_enabled: true,
+  push_enabled: true,
+  schedule_enabled: true,
+}
+
 function base64UrlToBuffer(value) {
   return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
 }
@@ -111,15 +121,33 @@ export default async function handler(request, response) {
   }
   const teamId = body.team_id
   const notificationIds = Array.isArray(body.notification_ids) ? body.notification_ids : []
+  const testSelf = body.test_self === true
 
   const { data: profile, error: profileError } = await admin
     .from('profiles')
-    .select('id, team_id')
+    .select('id, team_id, full_name')
     .eq('id', userData.user.id)
     .maybeSingle()
 
   if (profileError || !profile?.team_id || profile.team_id !== teamId) {
     return response.status(403).json({ error: 'You can only send TeamSync pushes for your team.' })
+  }
+
+  if (testSelf) {
+    const { data: testNotification, error: testNotificationError } = await admin
+      .from('notifications')
+      .insert({
+        body: `Push is working for ${profile.full_name || 'this device'}.`,
+        notification_type: 'test',
+        recipient_id: profile.id,
+        team_id: teamId,
+        title: 'TeamSync Test Push',
+      })
+      .select('id')
+      .maybeSingle()
+
+    if (testNotificationError) return response.status(500).json({ error: testNotificationError.message })
+    notificationIds.push(testNotification.id)
   }
 
   let notificationQuery = admin
@@ -172,7 +200,7 @@ export default async function handler(request, response) {
   const failures = []
 
   for (const notification of notifications) {
-    const preference = preferencesByProfile.get(notification.recipient_id) || { push_enabled: true }
+    const preference = preferencesByProfile.get(notification.recipient_id) || defaultNotificationPreferences
     if (!notificationAllowed(preference, notification.notification_type)) {
       skipped += 1
       preferenceDisabled += 1
