@@ -307,6 +307,20 @@ p {
   margin-bottom: 36px;
 }
 
+.public-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-button {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0 14px;
+}
+
 .public-topbar .brand strong {
   color: var(--foreground);
 }
@@ -2321,16 +2335,12 @@ p {
 }
 
 .map-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  margin-left: 8px;
-  border-radius: 999px;
-  background: var(--surface-soft);
+  display: inline;
   color: var(--primary);
-  font-size: 0.75rem;
-  font-weight: 850;
-  padding: 0 9px;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .small-row > div {
@@ -2899,6 +2909,58 @@ p {
   line-height: 1.45;
 }
 
+.lineup-control-card {
+  display: grid;
+  gap: 14px;
+}
+
+.lineup-control-card label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted-strong);
+  font-weight: 800;
+}
+
+.inning-switcher {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.inning-switcher button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-strong);
+  padding: 0 12px;
+}
+
+.inning-switcher .active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.lineup-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineup-save-row small {
+  color: var(--muted);
+}
+
+.lineup-save-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .lineup-grid {
   grid-template-columns: 1fr;
   align-items: start;
@@ -2978,6 +3040,53 @@ p {
   border-radius: 8px;
   font-size: 0.78rem;
   padding: 4px 6px;
+}
+
+.active-inning-card {
+  max-width: 620px;
+}
+
+.box-score-card {
+  display: grid;
+  gap: 14px;
+}
+
+.box-score-table {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.box-score-head,
+.box-score-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) repeat(6, 58px);
+  gap: 8px;
+  align-items: center;
+}
+
+.box-score-head {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.box-score-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.box-score-row strong {
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.box-score-row input {
+  min-height: 34px;
+  padding: 0 8px;
+  text-align: center;
 }
 
 .clickable-card {

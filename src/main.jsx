@@ -279,11 +279,54 @@ function PublicShell({ children, profile, onSignOut }) {
     <div className="public-app">
       <header className="public-topbar">
         <Brand team={{ name: 'TeamSync', age_group: '9U Travel', location: 'Baseball' }} />
-        {profile && <button type="button" onClick={onSignOut}>Sign out</button>}
+        <div className="public-actions">
+          <InstallAppButton />
+          {profile && <button type="button" onClick={onSignOut}>Sign out</button>}
+        </div>
       </header>
       <main>{children}</main>
     </div>
   )
+}
+
+function InstallAppButton() {
+  const [installPrompt, setInstallPrompt] = useState(null)
+  const [installed, setInstalled] = useState(false)
+
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+    setInstalled(Boolean(standalone))
+
+    function handlePrompt(event) {
+      event.preventDefault()
+      setInstallPrompt(event)
+    }
+
+    function handleInstalled() {
+      setInstalled(true)
+      setInstallPrompt(null)
+    }
+
+    window.addEventListener('beforeinstallprompt', handlePrompt)
+    window.addEventListener('appinstalled', handleInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handlePrompt)
+      window.removeEventListener('appinstalled', handleInstalled)
+    }
+  }, [])
+
+  async function install() {
+    if (!installPrompt) {
+      alert('On iPhone, tap Share, then Add to Home Screen.')
+      return
+    }
+    installPrompt.prompt()
+    await installPrompt.userChoice
+    setInstallPrompt(null)
+  }
+
+  if (installed) return null
+  return <button className="ghost install-button" type="button" onClick={install}>Install App</button>
 }
 
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
@@ -699,8 +742,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             <h2>{nextEvent ? nextEvent.title : 'No Upcoming Events'}</h2>
             <div>
               <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Your team schedule will appear here.'}</span>
-              {nextEvent?.location && <span>{nextEvent.location}</span>}
-              {nextEvent && <ScheduleMapLink event={nextEvent} />}
+              {nextEvent?.location && <span><ScheduleMapLink event={nextEvent}>{nextEvent.location}</ScheduleMapLink></span>}
             </div>
             <footer>
               {nextEvent && <Badge label={nextEvent.event_type} />}
@@ -769,8 +811,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           <h2>{nextEvent ? nextEvent.title : 'No Upcoming Event'}</h2>
           <div>
             <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Schedule TBD'}</span>
-            <span>{nextEvent?.location || 'Location TBD'}</span>
-            {nextEvent && <ScheduleMapLink event={nextEvent} />}
+            <span>{nextEvent ? <ScheduleMapLink event={nextEvent}>{nextEvent.location || 'Location TBD'}</ScheduleMapLink> : 'Location TBD'}</span>
           </div>
           <footer>
             <Badge label={nextEvent?.event_type || 'Event'} />
@@ -1297,15 +1338,37 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
 
 function LineupPage({ data, onPage, team }) {
   const games = data.events
-    .filter((event) => event.event_type === 'game' && event.status !== 'cancelled' && new Date(event.starts_at) >= new Date())
+    .filter((event) => event.event_type === 'game' && event.status !== 'cancelled')
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
-  const nextGame = games[0]
+  const upcomingGames = games.filter((event) => new Date(event.starts_at) >= new Date())
+  const [selectedGameId, setSelectedGameId] = useState(() => upcomingGames[0]?.id || games[0]?.id || '')
+  const selectedGame = games.find((event) => event.id === selectedGameId) || games[0]
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const restingIds = new Set(availability.resting.map((row) => row.player.id))
   const positionOptions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'Bench']
   const inningCount = 6
+  const [activeInning, setActiveInning] = useState(1)
   const [battingOrder, setBattingOrder] = useState(() => data.roster.map((player) => player.id))
   const [defense, setDefense] = useState({})
+  const [savedLineupAt, setSavedLineupAt] = useState('')
+  const [boxScore, setBoxScore] = useState({})
+  const lineupStorageKey = selectedGame ? `teamsync:lineup:${selectedGame.id}` : ''
+
+  useEffect(() => {
+    if (!lineupStorageKey) return
+    try {
+      const saved = JSON.parse(localStorage.getItem(lineupStorageKey) || '{}')
+      setBattingOrder(Array.isArray(saved.battingOrder) && saved.battingOrder.length ? saved.battingOrder : data.roster.map((player) => player.id))
+      setDefense(saved.defense || {})
+      setBoxScore(saved.boxScore || {})
+      setSavedLineupAt(saved.savedAt || '')
+    } catch {
+      setBattingOrder(data.roster.map((player) => player.id))
+      setDefense({})
+      setBoxScore({})
+      setSavedLineupAt('')
+    }
+  }, [lineupStorageKey, data.roster])
 
   function movePlayer(playerId, direction) {
     setBattingOrder((current) => {
@@ -1325,13 +1388,59 @@ function LineupPage({ data, onPage, team }) {
     }))
   }
 
+  function saveLineup() {
+    if (!lineupStorageKey) return
+    localStorage.setItem(lineupStorageKey, JSON.stringify({ battingOrder, boxScore, defense, savedAt: new Date().toISOString() }))
+    setSavedLineupAt(new Date().toISOString())
+  }
+
+  function saveAndNextInning() {
+    saveLineup()
+    setActiveInning((current) => Math.min(inningCount, current + 1))
+  }
+
+  function updateStat(playerId, stat, value) {
+    setBoxScore((current) => ({
+      ...current,
+      [playerId]: {
+        ...(current[playerId] || {}),
+        [stat]: value,
+      },
+    }))
+  }
+
   const orderedPlayers = battingOrder.map((id) => data.roster.find((player) => player.id === id)).filter(Boolean)
   const unlistedPlayers = data.roster.filter((player) => !battingOrder.includes(player.id))
+  const activeInningDefense = orderedPlayers.map((player) => ({
+    player,
+    position: defense[`${activeInning}:${player.id}`] || '',
+  }))
 
   return (
     <div className="page-stack lineup-page">
-      <PageHeader title="Lineup Lab" subtitle={nextGame ? `${nextGame.title} · ${formatDate(nextGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={nextGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
-      {!nextGame && <EmptyState title="No upcoming games" body="Add a game to the schedule first, then build the lineup from the game card." action="Add Schedule" onAction={() => onPage('schedule')} />}
+      <PageHeader title="Lineup Lab" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
+      {!selectedGame && <EmptyState title="No games yet" body="Add games to the schedule first, then build each lineup from here." action="Add Schedule" onAction={() => onPage('schedule')} />}
+      {selectedGame && (
+        <section className="panel lineup-control-card">
+          <label>Game
+            <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
+              {games.map((game) => <option key={game.id} value={game.id}>{game.title} · {formatDate(game.starts_at)}</option>)}
+            </select>
+          </label>
+          <div className="inning-switcher" role="group" aria-label="Choose inning">
+            {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
+              <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>Inning {inning}</button>
+            ))}
+          </div>
+          <div className="lineup-save-row">
+            <small>{savedLineupAt ? `Saved ${formatDate(savedLineupAt)}` : 'Save after setting the order or each inning.'}</small>
+            <div>
+              <button className="soft-button" type="button" onClick={saveLineup}>Save</button>
+              <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="lineup-intel-grid">
         <article className="panel lineup-intel-card">
           <span>Pitch Plan</span>
@@ -1340,8 +1449,8 @@ function LineupPage({ data, onPage, team }) {
         </article>
         <article className="panel lineup-intel-card">
           <span>Next Step</span>
-          <strong>Stats Tracking</strong>
-          <p>Start simple: plate appearances, hits, walks, strikeouts, runs, RBI, and coach notes. That is enough to power smarter 9U lineup suggestions.</p>
+          <strong>Box Score</strong>
+          <p>Track simple player stats during a game or enter them after. That is enough to start building smarter lineup suggestions.</p>
         </article>
       </section>
       <section className="lineup-grid">
@@ -1365,24 +1474,46 @@ function LineupPage({ data, onPage, team }) {
           </div>
         </article>
         <article className="panel defense-card">
-          <SectionBar title="Defense By Inning" count={inningCount} />
-          <div className="defense-board">
-            {Array.from({ length: inningCount }, (_, inningIndex) => inningIndex + 1).map((inning) => (
-              <div className="inning-card" key={inning}>
-                <strong>Inning {inning}</strong>
-                {orderedPlayers.map((player) => (
-                  <label key={player.id}>
-                    <span>#{player.jersey_number || '-'} {player.player_name}</span>
-                    <select value={defense[`${inning}:${player.id}`] || ''} onChange={(event) => assignPosition(inning, player.id, event.target.value)}>
-                      <option value="">—</option>
-                      {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
-                    </select>
-                  </label>
-                ))}
-              </div>
+          <SectionBar title={`Defense · Inning ${activeInning}`} count={activeInningDefense.filter((row) => row.position).length} />
+          <div className="inning-card active-inning-card">
+            {orderedPlayers.map((player) => (
+              <label key={player.id}>
+                <span>#{player.jersey_number || '-'} {player.player_name}</span>
+                <select value={defense[`${activeInning}:${player.id}`] || ''} onChange={(event) => assignPosition(activeInning, player.id, event.target.value)}>
+                  <option value="">—</option>
+                  {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
+                </select>
+              </label>
             ))}
           </div>
         </article>
+      </section>
+      <section className="panel box-score-card">
+        <SectionBar title="Simple Box Score" count={orderedPlayers.length} />
+        <div className="box-score-table">
+          <div className="box-score-head">
+            <span>Player</span>
+            <span>AB</span>
+            <span>H</span>
+            <span>BB</span>
+            <span>SO</span>
+            <span>R</span>
+            <span>RBI</span>
+          </div>
+          {orderedPlayers.map((player) => (
+            <div className="box-score-row" key={player.id}>
+              <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+              {['ab', 'h', 'bb', 'so', 'r', 'rbi'].map((stat) => (
+                <input key={stat} inputMode="numeric" min="0" type="number" value={boxScore[player.id]?.[stat] || ''} onChange={(event) => updateStat(player.id, stat, event.target.value)} />
+              ))}
+            </div>
+          ))}
+        </div>
+        <label>Coach Notes<textarea placeholder="Good swings, base running notes, defensive notes..." value={boxScore.notes || ''} onChange={(event) => setBoxScore((current) => ({ ...current, notes: event.target.value }))} /></label>
+        <div className="lineup-save-row">
+          <small>Saved with the lineup for this game.</small>
+          <button className="primary fit" type="button" onClick={saveLineup}>Save Stats</button>
+        </div>
       </section>
     </div>
   )
@@ -2814,8 +2945,6 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
-  const mapTarget = event.event_address || event.location || ''
-  const mapHref = mapTarget ? getMapHref(mapTarget) : ''
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
@@ -2823,9 +2952,8 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
         <h3>{event.title} <Badge label={isCancelled ? 'cancelled' : event.event_type} /> {event.home_away && !isCancelled && <span className="desktop-detail"><Badge label={event.home_away} /></span>} {event.result && <span className="desktop-detail"><Badge label={event.result} /></span>}</h3>
         <p>{date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
         <p>
-          {event.location || event.event_address || 'Location TBD'} <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span>
+          <ScheduleMapLink event={event}>{event.location || event.event_address || 'Location TBD'}</ScheduleMapLink> <span className="desktop-detail">{event.opponent ? `· vs. ${event.opponent}` : ''}</span>
           {event.event_address && <span className="desktop-detail"> · {event.event_address}</span>}
-          {mapHref && <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Open Map</a>}
         </p>
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
@@ -2851,17 +2979,17 @@ function EventRow({ event }) {
     <article className="small-row">
       <div>
         <strong>{event.title}</strong>
-        <p>{formatDate(event.starts_at)} · {event.location || event.event_address || 'TBD'} <ScheduleMapLink event={event} /></p>
+        <p>{formatDate(event.starts_at)} · <ScheduleMapLink event={event}>{event.location || event.event_address || 'TBD'}</ScheduleMapLink></p>
       </div>
       <Badge label={event.event_type} />
     </article>
   )
 }
 
-function ScheduleMapLink({ event }) {
+function ScheduleMapLink({ children, event }) {
   const mapTarget = event?.event_address || event?.location || ''
-  if (!mapTarget) return null
-  return <a className="map-link" href={getMapHref(mapTarget)} target="_blank" rel="noreferrer">Open Map</a>
+  if (!mapTarget) return children || null
+  return <a className="map-link" href={getMapHref(mapTarget)} target="_blank" rel="noreferrer">{children || mapTarget}</a>
 }
 
 function PitchStatusRow({ row }) {
