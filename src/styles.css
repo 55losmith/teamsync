@@ -294,8 +294,10 @@ p {
 
 .public-app {
   width: min(980px, calc(100% - 32px));
+  max-width: 100%;
   margin: 0 auto;
   padding: 28px 0 56px;
+  overflow-x: hidden;
 }
 
 .public-topbar {
@@ -318,12 +320,16 @@ p {
   grid-template-columns: minmax(0, 1fr) 420px;
   gap: 32px;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .auth-copy h1 {
   max-width: 620px;
   font-size: clamp(2.4rem, 6vw, 4.5rem);
   line-height: 0.96;
+  overflow-wrap: anywhere;
 }
 
 .auth-copy p {
@@ -3117,8 +3123,18 @@ p {
   }
 
   .public-app {
-    width: min(100% - 28px, 980px);
+    width: calc(100% - 28px);
+    max-width: 980px;
+    overflow-x: hidden;
     padding: 18px 0 40px;
+  }
+
+  .public-app .panel,
+  .auth-grid,
+  .auth-copy {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .public-topbar {
@@ -4143,7 +4159,7 @@ p {
 
   .mobile-bottom-nav span {
     color: inherit;
-    font-size: 1rem;
+    font-size: 1.12rem;
     line-height: 1;
   }
 

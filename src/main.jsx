@@ -43,14 +43,14 @@ async function sendPendingPushes(teamId, notificationIds = []) {
 
 const today = new Date().toISOString().slice(0, 10)
 const navItems = [
-  ['dashboard', '▦', 'Dashboard'],
+  ['dashboard', '⌂', 'Dashboard'],
   ['lineup', '◇', 'Lineup'],
   ['roster', '♙', 'Roster'],
-  ['schedule', '▣', 'Schedule'],
+  ['schedule', '□', 'Schedule'],
   ['pitch', '⌁', 'Pitch Counts'],
   ['dues', '$', 'Finances'],
-  ['messages', '□', 'Messages'],
-  ['account', '◌', 'Account'],
+  ['messages', '▱', 'Messages'],
+  ['account', '○', 'Account'],
   ['settings', '⚙', 'Team Settings'],
 ]
 
@@ -292,15 +292,14 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
   const actionCounts = getActionCounts(visibleData)
-  const parentNavKeys = ['dashboard', 'schedule', 'dues', 'messages', 'account']
+  const parentNavKeys = ['dashboard', 'schedule', 'account', 'messages', 'dues']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
+  const followerNavKeys = ['dashboard', 'schedule', 'messages', 'account']
   const visibleNav = isCoach
     ? navItems
-    : profile.role === 'follower'
-      ? navItems.filter(([key]) => ['dashboard', 'schedule', 'messages', 'account'].includes(key))
-      : navItems.filter(([key]) => parentNavKeys.includes(key))
+    : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
   const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
-  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'account']
+  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'dues']
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
   const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
@@ -396,6 +395,10 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
 
 function mobileLabel(label) {
   return label === 'Dashboard' ? 'Home' : label === 'Finances' ? 'Finance' : label
+}
+
+function navByKeys(keys) {
+  return keys.map((key) => navItems.find(([navKey]) => navKey === key)).filter(Boolean)
 }
 
 function Brand({ team }) {
@@ -697,6 +700,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             <div>
               <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Your team schedule will appear here.'}</span>
               {nextEvent?.location && <span>{nextEvent.location}</span>}
+              {nextEvent && <ScheduleMapLink event={nextEvent} />}
             </div>
             <footer>
               {nextEvent && <Badge label={nextEvent.event_type} />}
@@ -766,6 +770,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           <div>
             <span>{nextEvent ? formatDate(nextEvent.starts_at) : 'Schedule TBD'}</span>
             <span>{nextEvent?.location || 'Location TBD'}</span>
+            {nextEvent && <ScheduleMapLink event={nextEvent} />}
           </div>
           <footer>
             <Badge label={nextEvent?.event_type || 'Event'} />
@@ -2844,10 +2849,19 @@ function EventCard({ editable, event, onCancel, onEdit, onScoreChange, onScoreSa
 function EventRow({ event }) {
   return (
     <article className="small-row">
-      <div><strong>{event.title}</strong><p>{formatDate(event.starts_at)} · {event.location || event.event_address || 'TBD'}</p></div>
+      <div>
+        <strong>{event.title}</strong>
+        <p>{formatDate(event.starts_at)} · {event.location || event.event_address || 'TBD'} <ScheduleMapLink event={event} /></p>
+      </div>
       <Badge label={event.event_type} />
     </article>
   )
+}
+
+function ScheduleMapLink({ event }) {
+  const mapTarget = event?.event_address || event?.location || ''
+  if (!mapTarget) return null
+  return <a className="map-link" href={getMapHref(mapTarget)} target="_blank" rel="noreferrer">Open Map</a>
 }
 
 function PitchStatusRow({ row }) {
@@ -2961,7 +2975,9 @@ function EmptyState({ action, body, onAction, title }) {
 }
 
 function Badge({ label }) {
-  return <span className={`badge ${String(label).toLowerCase()}`}>{label}</span>
+  const display = titleCase(String(label || ''))
+  const className = String(label || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-')
+  return <span className={`badge ${className}`}>{display}</span>
 }
 
 function getActionCounts(data) {
