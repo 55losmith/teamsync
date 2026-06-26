@@ -1329,7 +1329,7 @@ function LineupPage({ data, onPage, team }) {
                   <label key={player.id}>
                     <span>#{player.jersey_number || '-'} {player.player_name}</span>
                     <select value={defense[`${inning}:${player.id}`] || ''} onChange={(event) => assignPosition(inning, player.id, event.target.value)}>
-                      <option value="">Position</option>
+                      <option value="">—</option>
                       {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
                     </select>
                   </label>
