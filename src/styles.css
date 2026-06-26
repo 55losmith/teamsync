@@ -40,8 +40,14 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: clip;
 }
 
 button,
@@ -3480,7 +3486,7 @@ p {
 
 @media (max-width: 520px) {
   .content {
-    padding: 14px 10px 34px;
+    padding: 22px 16px calc(120px + env(safe-area-inset-bottom));
   }
 
   .sidebar {
@@ -3512,7 +3518,12 @@ p {
   }
 
   .page-header h1 {
-    font-size: 1.28rem;
+    font-size: 2rem;
+    line-height: 1.02;
+  }
+
+  .page-header p {
+    font-size: 1rem;
   }
 
   .auth-copy h1 {
@@ -3572,6 +3583,27 @@ p {
 
   .pitch-count-pair {
     grid-template-columns: 1fr;
+  }
+
+  .family-hero h2 {
+    font-size: 2.35rem;
+    line-height: 0.98;
+  }
+
+  .family-hero > div {
+    display: grid;
+    gap: 6px;
+    font-size: 0.95rem;
+  }
+
+  .family-hero footer {
+    justify-content: flex-start;
+  }
+
+  .family-hero button {
+    background: #ffffff;
+    color: var(--foreground);
+    font-size: 0.95rem;
   }
 
   .event-card,
@@ -3653,6 +3685,8 @@ p {
 
   .content {
     width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
     padding: 28px 24px calc(150px + env(safe-area-inset-bottom));
   }
 
@@ -3903,6 +3937,41 @@ p {
     padding: 20px;
   }
 
+  .family-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .family-hero,
+  .family-side,
+  .family-dashboard-grid {
+    grid-column: auto;
+    grid-row: auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .family-side {
+    order: 2;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .family-dashboard-grid {
+    order: 3;
+  }
+
+  .family-card {
+    min-width: 0;
+  }
+
+  .family-card strong {
+    overflow-wrap: anywhere;
+  }
+
   .today-card footer,
   .family-hero footer {
     align-items: center;
@@ -3923,9 +3992,12 @@ p {
   .action-panel,
   .broadcast-alert {
     position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 12px;
     border-radius: 14px;
-    padding: 14px 42px 44px 14px;
+    padding: 14px 14px 50px;
   }
 
   .action-panel > div:last-child,
@@ -3944,7 +4016,9 @@ p {
     min-height: 28px;
     border-radius: 9px;
     font-size: 0.76rem;
-    padding: 0 9px;
+    max-width: calc(100vw - 72px);
+    padding: 0 10px;
+    white-space: nowrap;
   }
 
   .action-panel .icon-dismiss,
@@ -3974,6 +4048,7 @@ p {
 
   .broadcast-alert > div:first-child {
     gap: 10px;
+    min-width: 0;
   }
 
   .broadcast-alert .broadcast {
