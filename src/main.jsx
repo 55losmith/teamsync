@@ -18,6 +18,25 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)))
 }
 
+async function sendPendingPushes(teamId, notificationIds = []) {
+  if (!teamId) return
+
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) return
+
+  await fetch('/api/send-push', {
+    body: JSON.stringify({ notification_ids: notificationIds, team_id: teamId }),
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  }).catch(() => {
+    // Push delivery should never block the core in-app action.
+  })
+}
+
 const today = new Date().toISOString().slice(0, 10)
 const navItems = [
   ['dashboard', '▦', 'Dashboard'],
@@ -1039,15 +1058,16 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
       ? `${originalEvent?.title || nextEvent.title} has been cancelled.`
       : `${nextEvent.title} is now set for ${formatDate(nextEvent.starts_at)} at ${nextEvent.location || nextEvent.event_address || 'Location TBD'}.`
 
-    const { error } = await supabase.from('notifications').insert(recipients.map((member) => ({
+    const { data: createdNotifications, error } = await supabase.from('notifications').insert(recipients.map((member) => ({
       body,
       notification_type: 'schedule',
       recipient_id: member.id,
       team_id: team.id,
       title,
-    })))
+    }))).select('id')
 
     if (error) setMessage(error.message)
+    else await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.id) || [])
   }
 
   async function saveScore(event, scoreForm) {
@@ -1426,11 +1446,45 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
       return
     }
 
-    const { error } = await supabase.from('dues').insert(payload)
+    const { data: createdDues, error } = await supabase.from('dues').insert(payload).select('id, roster_member_id, title, amount, due_type, due_date')
     if (error) {
       setMessage(error.message)
       return
     }
+
+    const parentIdsByPlayer = new Map()
+    data.parentClaims.forEach((claim) => {
+      const existing = parentIdsByPlayer.get(claim.roster_member_id) || new Set()
+      existing.add(claim.parent_profile_id)
+      parentIdsByPlayer.set(claim.roster_member_id, existing)
+    })
+    data.roster.forEach((player) => {
+      if (!player.parent_profile_id) return
+      const existing = parentIdsByPlayer.get(player.id) || new Set()
+      existing.add(player.parent_profile_id)
+      parentIdsByPlayer.set(player.id, existing)
+    })
+
+    const notifications = (createdDues || []).flatMap((due) => {
+      const parentIds = [...(parentIdsByPlayer.get(due.roster_member_id) || [])]
+      return parentIds.map((parentId) => ({
+        body: `${due.title} for ${money(due.amount)} is now posted${due.due_date ? ` and due ${due.due_date}` : ''}.`,
+        notification_type: 'dues',
+        recipient_id: parentId,
+        team_id: team.id,
+        title: `${titleCase(due.due_type || 'due')} Posted`,
+      }))
+    })
+
+    if (notifications.length) {
+      const { data: createdNotifications, error: notificationError } = await supabase.from('notifications').insert(notifications).select('id')
+      if (notificationError) {
+        setMessage(notificationError.message)
+        return
+      }
+      await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.id) || [])
+    }
+
     setForm(emptyForms.due)
     setShowForm(false)
     onRefresh()
@@ -1976,6 +2030,25 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
       setMessage(error.message)
       return
     }
+
+    const recipients = data.members.filter((member) => ['parent', 'follower'].includes(member.role))
+    if (recipients.length) {
+      const { data: createdNotifications, error: notificationError } = await supabase.from('notifications').insert(recipients.map((member) => ({
+        body: form.body,
+        notification_type: 'broadcast',
+        recipient_id: member.id,
+        team_id: team.id,
+        title: form.title,
+      }))).select('id')
+
+      if (notificationError) {
+        setMessage(notificationError.message)
+        return
+      }
+
+      await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.id) || [])
+    }
+
     setForm(emptyForms.announcement)
     setMessage('Broadcast sent.')
     setShowForm(false)
@@ -2006,6 +2079,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
     setConversationForm(emptyForms.conversation)
     setShowForm(false)
     setMessage('Message sent.')
+    await sendPendingPushes(team.id)
     onRefresh()
   }
 
@@ -2025,6 +2099,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
 
     setReplyBody('')
     setMessage('Reply sent.')
+    await sendPendingPushes(team.id)
     onRefresh()
   }
 

@@ -212,8 +212,11 @@ create table if not exists public.notifications (
   body text not null,
   notification_type text not null default 'message',
   read_at timestamptz,
+  push_sent_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.notifications add column if not exists push_sent_at timestamptz;
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),

@@ -11,6 +11,8 @@ create table if not exists public.push_subscriptions (
   updated_at timestamptz not null default now()
 );
 
+alter table public.notifications add column if not exists push_sent_at timestamptz;
+
 create table if not exists public.notification_preferences (
   profile_id uuid primary key references public.profiles(id) on delete cascade,
   team_id uuid not null references public.teams(id) on delete cascade,
