@@ -382,6 +382,7 @@ function InstallAppButton() {
 
 function AppShell({ activePage, children, data, onPage, onSignOut, profile, team }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [gameModeShellActive, setGameModeShellActive] = useState(() => sessionStorage.getItem('huddleup:gameMode') === 'active')
   const isCoach = profile.role === 'coach'
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
@@ -397,6 +398,15 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
   const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
+  const hideChrome = isCoach && activePage === 'lineup' && gameModeShellActive
+
+  useEffect(() => {
+    function handleGameModeChange() {
+      setGameModeShellActive(sessionStorage.getItem('huddleup:gameMode') === 'active')
+    }
+    window.addEventListener('huddleup:gameModeChange', handleGameModeChange)
+    return () => window.removeEventListener('huddleup:gameModeChange', handleGameModeChange)
+  }, [])
 
   function goToPage(key) {
     setMobileMenuOpen(false)
@@ -404,7 +414,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   }
 
   return (
-    <div className="shell" style={teamThemeStyle(team)}>
+    <div className={`shell ${hideChrome ? 'game-mode-shell' : ''}`} style={teamThemeStyle(team)}>
       <aside className="sidebar">
         <div className="mobile-shell-head">
           <Brand team={team} />
@@ -439,7 +449,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
         </div>
       </aside>
       <main className="content">{children}</main>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+      {!hideChrome && <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {mobilePrimaryNav.map(([key, icon, label]) => (
           <button className={activePage === key ? 'active' : ''} key={key} type="button" onClick={() => goToPage(key)}>
             <span>{icon}</span>
@@ -454,7 +464,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
             <strong>More</strong>
           </button>
         )}
-      </nav>
+      </nav>}
       {mobileMenuOpen && (
         <div className="mobile-more-overlay">
           <button aria-label="Close Menu" className="mobile-scrim" type="button" onClick={() => setMobileMenuOpen(false)} />
@@ -754,6 +764,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
     if (!event) return
     sessionStorage.setItem('huddleup:selectedGameId', event.id)
     sessionStorage.setItem('huddleup:gameMode', 'active')
+    window.dispatchEvent(new Event('huddleup:gameModeChange'))
     onPage('lineup')
   }
 
@@ -1237,6 +1248,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
   function buildLineup(event) {
     sessionStorage.setItem('huddleup:selectedGameId', event.id)
     sessionStorage.setItem('huddleup:gameMode', 'active')
+    window.dispatchEvent(new Event('huddleup:gameModeChange'))
     onPage('lineup')
   }
 
@@ -1523,6 +1535,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   function exitGameMode() {
     sessionStorage.removeItem('huddleup:gameMode')
     setGameModeActive(false)
+    window.dispatchEvent(new Event('huddleup:gameModeChange'))
   }
 
   function updateStat(playerId, stat, value) {
@@ -1547,6 +1560,93 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const currentBatter = orderedPlayers[0]
   const onDeck = orderedPlayers[1]
   const inHole = orderedPlayers[2]
+
+  if (gameModeActive && selectedGame) {
+    return (
+      <div className="game-mode-screen">
+        <header className="game-mode-top">
+          <div>
+            <span className="game-mode-pill">Game Mode</span>
+            <h1>{selectedGame.title}</h1>
+            <p>{formatDate(selectedGame.starts_at)} · {selectedGame.location || selectedGame.event_address || 'Location TBD'}</p>
+          </div>
+          <button className="quiet-button" type="button" onClick={exitGameMode}>Exit</button>
+        </header>
+
+        <section className="game-mode-scoreboard">
+          <article>
+            <span>Inning</span>
+            <strong>{activeInning}</strong>
+          </article>
+          <article>
+            <span>Pitcher</span>
+            <strong>{pitcherAssignment?.player.player_name || 'Unset'}</strong>
+          </article>
+          <article>
+            <span>Catcher</span>
+            <strong>{catcherAssignment?.player.player_name || 'Unset'}</strong>
+          </article>
+          <article>
+            <span>Due Up</span>
+            <strong>{currentBatter?.player_name || 'Set Order'}</strong>
+            <p>{[onDeck?.player_name, inHole?.player_name].filter(Boolean).join(' · ')}</p>
+          </article>
+        </section>
+
+        <section className="game-mode-grid">
+          <article className="game-mode-card batting-mode-card">
+            <div className="game-mode-card-head">
+              <div>
+                <span>Batting Order</span>
+                <strong>{orderedPlayers.length} Players</strong>
+              </div>
+              <button type="button" onClick={saveLineup}>Save</button>
+            </div>
+            <div className="game-mode-order">
+              {orderedPlayers.map((player, index) => (
+                <div className="game-mode-order-row" key={player.id}>
+                  <span>{index + 1}</span>
+                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                  {restingIds.has(player.id) && <small>Pitch Rest</small>}
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="game-mode-card defense-mode-card">
+            <div className="game-mode-card-head">
+              <div>
+                <span>Defense</span>
+                <strong>Inning {activeInning}</strong>
+              </div>
+              <div className="game-mode-stepper">
+                <button type="button" onClick={() => setActiveInning((current) => Math.max(1, current - 1))} disabled={activeInning === 1}>Prev</button>
+                <button type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Next</button>
+              </div>
+            </div>
+            <div className="game-mode-innings" role="group" aria-label="Choose inning">
+              {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
+                <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>{inning}</button>
+              ))}
+            </div>
+            <div className="game-mode-defense-list">
+              {activeInningDefense.map(({ player, position }) => (
+                <label className="game-mode-defense-row" key={player.id}>
+                  <span>{position || '-'}</span>
+                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                  <select aria-label={`${player.player_name} position`} value={position} onChange={(event) => assignPosition(activeInning, player.id, event.target.value)}>
+                    <option value="">Bench</option>
+                    {positionOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+          </article>
+        </section>
+      </div>
+    )
+  }
+
   const gameDayTabs = [
     ['order', 'Batting Order'],
     ['defense', `Inning ${activeInning}`],

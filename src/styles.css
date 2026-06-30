@@ -126,6 +126,21 @@ p {
   grid-template-columns: 248px minmax(0, 1fr);
 }
 
+.game-mode-shell {
+  display: block;
+  background: #0f172a;
+}
+
+.game-mode-shell .sidebar,
+.game-mode-shell .mobile-bottom-nav {
+  display: none;
+}
+
+.game-mode-shell .content {
+  min-height: 100vh;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -3146,6 +3161,211 @@ p {
   background: linear-gradient(135deg, #fffafa, var(--surface));
 }
 
+.game-mode-screen {
+  min-height: calc(100vh - 36px);
+  display: grid;
+  gap: 14px;
+  color: #ffffff;
+}
+
+.game-mode-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #162033, #111827);
+  padding: 16px;
+}
+
+.game-mode-top h1 {
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+.game-mode-top p {
+  margin-top: 8px;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.game-mode-top .quiet-button {
+  min-height: 34px;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  padding: 0 12px;
+}
+
+.game-mode-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-mode-scoreboard article,
+.game-mode-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--foreground);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+}
+
+.game-mode-scoreboard article {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 14px;
+}
+
+.game-mode-scoreboard span,
+.game-mode-card-head span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.game-mode-scoreboard strong {
+  font-size: 1.15rem;
+  line-height: 1.05;
+}
+
+.game-mode-scoreboard p {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.game-mode-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.game-mode-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.game-mode-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.game-mode-card-head strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.05rem;
+}
+
+.game-mode-card-head button,
+.game-mode-stepper button {
+  min-height: 32px;
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  padding: 0 10px;
+}
+
+.game-mode-stepper {
+  display: flex;
+  gap: 8px;
+}
+
+.game-mode-order,
+.game-mode-defense-list {
+  display: grid;
+  gap: 8px;
+}
+
+.game-mode-order-row,
+.game-mode-defense-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-tint);
+  padding: 9px 10px;
+}
+
+.game-mode-order-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+
+.game-mode-order-row > span,
+.game-mode-defense-row > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.game-mode-order-row strong,
+.game-mode-defense-row strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.96rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-mode-order-row small {
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #92400e;
+  font-size: 0.68rem;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.game-mode-innings {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.game-mode-innings button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  padding: 0;
+}
+
+.game-mode-innings .active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.game-mode-defense-row {
+  grid-template-columns: 44px minmax(0, 1fr) 84px;
+}
+
+.game-mode-defense-row select {
+  min-height: 34px;
+  border-radius: 9px;
+  font-size: 0.86rem;
+  padding: 4px 8px;
+}
+
 .game-day-overview {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -4856,5 +5076,109 @@ p {
     min-height: 40px;
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
+  }
+
+  .game-mode-shell .sidebar,
+  .game-mode-shell .mobile-bottom-nav {
+    display: none;
+  }
+
+  .game-mode-shell .content {
+    max-width: 100vw;
+    padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .game-mode-screen {
+    min-height: calc(100vh - 24px);
+    gap: 10px;
+  }
+
+  .game-mode-top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .game-mode-top h1 {
+    font-size: 1.35rem;
+  }
+
+  .game-mode-top p {
+    font-size: 0.8rem;
+  }
+
+  .game-mode-scoreboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-mode-scoreboard article {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .game-mode-scoreboard strong {
+    font-size: 0.98rem;
+  }
+
+  .game-mode-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .game-mode-card {
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .game-mode-card-head {
+    align-items: flex-start;
+  }
+
+  .game-mode-order,
+  .game-mode-defense-list {
+    gap: 6px;
+  }
+
+  .game-mode-order-row,
+  .game-mode-defense-row {
+    border-radius: 10px;
+    padding: 7px 8px;
+  }
+
+  .game-mode-order-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .game-mode-order-row small {
+    grid-column: 2;
+    width: fit-content;
+  }
+
+  .game-mode-order-row > span,
+  .game-mode-defense-row > span {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .game-mode-defense-row {
+    grid-template-columns: 36px minmax(0, 1fr) 76px;
+    gap: 8px;
+  }
+
+  .game-mode-defense-row select {
+    min-height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .game-mode-innings {
+    position: sticky;
+    top: 84px;
+    z-index: 4;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    padding: 4px;
   }
 }
