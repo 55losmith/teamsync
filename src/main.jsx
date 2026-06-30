@@ -10,7 +10,7 @@ const supabase =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
 
 const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'account', 'settings']
+const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'notifications', 'account', 'settings']
 const emptyTeamData = { roster: [], parentClaims: [], events: [], lineupPlans: [], playerGameStats: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] }
 
 function getPageFromLocation() {
@@ -79,6 +79,7 @@ const navItems = [
   ['pitch', '⌁', 'Pitch Counts'],
   ['dues', '$', 'Finances'],
   ['messages', '▱', 'Messages'],
+  ['notifications', '◉', 'Notifications'],
   ['account', '○', 'Account'],
   ['settings', '⚙', 'Team Settings'],
 ]
@@ -386,9 +387,9 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
   const actionCounts = getActionCounts(visibleData)
-  const parentNavKeys = ['dashboard', 'schedule', 'account', 'messages', 'dues']
+  const parentNavKeys = ['dashboard', 'schedule', 'messages', 'dues', 'notifications', 'account']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
-  const followerNavKeys = ['dashboard', 'schedule', 'messages', 'account']
+  const followerNavKeys = ['dashboard', 'schedule', 'messages', 'notifications', 'account']
   const visibleNav = isCoach
     ? navItems
     : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
@@ -418,7 +419,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
               <span className="nav-label">{label}</span>
               {key === 'messages' && actionCounts.unreadMessages > 0 && <strong className="nav-badge">{actionCounts.unreadMessages}</strong>}
               {key === 'dues' && actionCounts.openDues > 0 && <strong className="nav-badge">{actionCounts.openDues}</strong>}
-              {key === 'account' && unreadNotifications > 0 && <strong className="nav-badge">{unreadNotifications}</strong>}
+              {key === 'notifications' && unreadNotifications > 0 && <strong className="nav-badge">{unreadNotifications}</strong>}
             </button>
           ))}
         </nav>
@@ -432,7 +433,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
           </div>
           <button className="signout" type="button" onClick={onSignOut}>↪ Sign Out</button>
           {unreadNotifications > 0 && (
-            <button className="notification-pill" type="button" onClick={() => onPage('account')}>
+            <button className="notification-pill" type="button" onClick={() => onPage('notifications')}>
               {unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}
             </button>
           )}
@@ -447,7 +448,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
             <strong>{mobileLabel(label)}</strong>
             {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
             {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
-            {key === 'account' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
+            {key === 'notifications' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
           </button>
         ))}
         {mobileMoreNav.length > 0 && (
@@ -473,7 +474,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
                   <strong>{label}</strong>
                   {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
                   {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
-                  {key === 'account' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
+                  {key === 'notifications' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
                 </button>
               ))}
             </nav>
@@ -526,6 +527,7 @@ function MainPage(props) {
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
     dues: <DuesPage {...pageProps} editable={isCoach} />,
     messages: <MessagesPage {...pageProps} editable={isCoach || props.profile.role === 'parent'} />,
+    notifications: <NotificationsPage {...pageProps} />,
     account: <AccountPage {...pageProps} />,
     settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
@@ -2518,7 +2520,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   )
 }
 
-function AccountPage({ data, fullData, onPage, onRefresh, profile, setMessage, team }) {
+function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
   const [fullName, setFullName] = useState(profile.full_name || '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -2596,8 +2598,20 @@ function AccountPage({ data, fullData, onPage, onRefresh, profile, setMessage, t
           <p className="form-help">This changes the password for the account you are signed into right now.</p>
         </form>
       </section>
-      <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />
       <PushNotificationsPanel onRefresh={onRefresh} profile={profile} setMessage={setMessage} team={team} />
+    </div>
+  )
+}
+
+function NotificationsPage({ data, onPage, onRefresh, setMessage }) {
+  const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
+  return (
+    <div className="page-stack">
+      <PageHeader
+        title="Notifications"
+        subtitle={`${unreadNotifications} unread alert${unreadNotifications === 1 ? '' : 's'}`}
+      />
+      <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />
     </div>
   )
 }
