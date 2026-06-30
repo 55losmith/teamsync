@@ -10,6 +10,34 @@ const supabase =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
 
 const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'account', 'settings']
+
+function getPageFromLocation() {
+  if (typeof window === 'undefined') return 'dashboard'
+  const page = new URLSearchParams(window.location.search).get('page') || window.location.hash.replace('#', '')
+  return pageKeys.includes(page) ? page : 'dashboard'
+}
+
+function setPageInHistory(page, replace = false) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (page === 'dashboard') url.searchParams.delete('page')
+  else url.searchParams.set('page', page)
+  url.hash = ''
+  const method = replace ? 'replaceState' : 'pushState'
+  window.history[method]({ page }, '', url)
+}
+
+function teamThemeStyle(team) {
+  if (!team) return undefined
+  const style = {}
+  if (team.primary_color) style['--primary'] = team.primary_color
+  if (team.primary_color) style['--primary-strong'] = team.primary_color
+  if (team.secondary_color) style['--navy'] = team.secondary_color
+  if (team.secondary_color) style['--navy-2'] = team.secondary_color
+  if (team.accent_color) style['--warning'] = team.accent_color
+  return Object.keys(style).length ? style : undefined
+}
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -55,7 +83,7 @@ const navItems = [
 ]
 
 const emptyForms = {
-  team: { name: 'Lone Star Rangers', season: 'Summer 2026', age_group: '9U Travel', location: 'Texas', head_coach: '', monthly_dues: '150', daily_pitch_limit: '75' },
+  team: { name: 'Lone Star Rangers', season: 'Summer 2026', age_group: '9U Travel', location: 'Texas', head_coach: '', monthly_dues: '150', daily_pitch_limit: '75', primary_color: '#c92931', secondary_color: '#111827', accent_color: '#d39a24', logo_url: '' },
   roster: { player_name: '', jersey_number: '', position: '', bats: '', throws: '', parent_name: '', parent_email: '', parent_phone: '' },
   event: { title: '', event_type: 'practice', starts_at: '', location: '', event_address: '', opponent: '', home_away: 'home', our_score: '', opponent_score: '', result: '', status: 'scheduled', notes: '' },
   due: { title: 'Monthly Dues', due_type: 'monthly', roster_member_id: '', amount: '150', due_date: today, status: 'unpaid', paid_amount: '0', waived_amount: '0', notes: '' },
@@ -74,7 +102,20 @@ function App() {
   const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
-  const [activePage, setActivePage] = useState('dashboard')
+  const [activePage, setActivePage] = useState(getPageFromLocation)
+
+  useEffect(() => {
+    function handlePopState() {
+      setActivePage(getPageFromLocation())
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  function navigate(page) {
+    setActivePage(page)
+    setPageInHistory(page)
+  }
 
   useEffect(() => {
     if (!supabase) return
@@ -255,7 +296,7 @@ function App() {
     <AppShell
       activePage={activePage}
       data={data}
-      onPage={setActivePage}
+      onPage={navigate}
       onSignOut={signOut}
       profile={profile}
       team={team}
@@ -353,7 +394,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   }
 
   return (
-    <div className="shell">
+    <div className="shell" style={teamThemeStyle(team)}>
       <aside className="sidebar">
         <div className="mobile-shell-head">
           <Brand team={team} />
@@ -447,7 +488,7 @@ function navByKeys(keys) {
 function Brand({ team }) {
   return (
     <div className="brand">
-      <img className="brand-mark" src="/icons/huddleup-icon.svg" alt="" aria-hidden="true" />
+      <img className="brand-mark" src={team?.logo_url || '/icons/huddleup-icon.svg'} alt="" aria-hidden="true" />
       <div>
         <strong>{team?.name || 'Lone Star Rangers'}</strong>
         <p>{team?.age_group || '9U Travel'} · {team?.location || 'Texas'}</p>
@@ -484,9 +525,9 @@ function MissingEnv() {
 }
 
 function AuthScreen() {
-  const [mode, setMode] = useState('login')
   const roleParam = new URLSearchParams(window.location.search).get('role')
   const teamCodeParam = new URLSearchParams(window.location.search).get('teamCode') || ''
+  const [mode, setMode] = useState(roleParam || teamCodeParam ? 'signup' : 'login')
   const initialRole = roleParam === 'parent' || roleParam === 'follower' ? roleParam : 'coach'
   const [role, setRole] = useState(initialRole)
   const [fullName, setFullName] = useState('')
@@ -802,7 +843,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
       )}
       <section className="dashboard-top-grid">
         <div className="dashboard-summary-stack">
-          <Stat icon="roster" label={isParent ? 'My Players' : 'Roster'} value={isParent ? `${claimedPlayers.length} Claimed` : `${data.roster.length} Players`} onClick={() => onPage('roster')} />
+          <Stat icon="dues" label="Finances" value={dueTotals.balance > 0 ? `${money(dueTotals.balance)} Open` : 'Balanced'} onClick={() => onPage('dues')} />
           <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} Events`} onClick={() => onPage('schedule')} />
           <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread` : 'No New'} onClick={() => onPage('messages')} />
         </div>
@@ -2675,6 +2716,10 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
     head_coach: team?.head_coach || '',
     monthly_dues: team?.monthly_dues || '',
     daily_pitch_limit: team?.daily_pitch_limit || 75,
+    primary_color: team?.primary_color || '#c92931',
+    secondary_color: team?.secondary_color || '#111827',
+    accent_color: team?.accent_color || '#d39a24',
+    logo_url: team?.logo_url || '',
   })
   const [copyStatus, setCopyStatus] = useState('')
   const inviteLink = `${window.location.origin}/?role=coach&teamCode=${team?.join_code || ''}`
@@ -2701,9 +2746,17 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
     }
   }
 
+  function uploadLogo(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setForm((current) => ({ ...current, logo_url: reader.result }))
+    reader.readAsDataURL(file)
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader title="Team Settings" subtitle="Baseball details, dues defaults, and pitch limits" />
+      <PageHeader title="Team Settings" subtitle="Baseball details, branding, dues defaults, and pitch limits" />
       <form className="form settings-form" onSubmit={submit}>
         <label>Team Name *<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
         <label>Season *<input value={form.season} onChange={(e) => setForm({ ...form, season: e.target.value })} required /></label>
@@ -2716,6 +2769,22 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
           <label>Monthly Dues ($)<input type="number" value={form.monthly_dues} onChange={(e) => setForm({ ...form, monthly_dues: e.target.value })} /></label>
           <label>Daily Pitch Limit<input type="number" value={form.daily_pitch_limit} onChange={(e) => setForm({ ...form, daily_pitch_limit: e.target.value })} /></label>
         </div>
+        <section className="brand-settings">
+          <div>
+            <span className="form-section-title">Team Branding</span>
+            <p>Set the colors and logo families see across their portal.</p>
+          </div>
+          <div className="brand-preview" style={teamThemeStyle(form)}>
+            <Brand team={{ ...team, ...form, logo_url: form.logo_url }} />
+          </div>
+          <label>Logo URL<input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://..." /></label>
+          <label>Upload Logo<input accept="image/*" type="file" onChange={uploadLogo} /></label>
+          <div className="form-row">
+            <label>Primary Color<input type="color" value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} /></label>
+            <label>Secondary Color<input type="color" value={form.secondary_color} onChange={(e) => setForm({ ...form, secondary_color: e.target.value })} /></label>
+            <label>Accent Color<input type="color" value={form.accent_color} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} /></label>
+          </div>
+        </section>
         <button className="primary fit" type="submit">Save Settings</button>
       </form>
       <section className="settings-invite">

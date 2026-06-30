@@ -70,6 +70,14 @@ textarea {
   font: inherit;
 }
 
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 button {
   border: 0;
   border-radius: 8px;
@@ -502,7 +510,37 @@ p {
 }
 
 .settings-form {
-  max-width: 512px;
+  max-width: 760px;
+}
+
+.brand-settings {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-tint);
+  padding: 16px;
+}
+
+.brand-settings p {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.brand-preview {
+  width: fit-content;
+  border-radius: 12px;
+  background: var(--navy);
+  padding: 14px 16px;
+}
+
+.brand-preview .brand strong {
+  color: #ffffff;
+}
+
+.brand-preview .brand p {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .settings-invite {
@@ -1184,6 +1222,13 @@ p {
 .family-hero .badge {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
+}
+
+.family-hero .map-link,
+.today-card .map-link,
+.dashboard-hero .map-link {
+  color: #ffffff;
+  text-decoration-color: rgba(255, 255, 255, 0.72);
 }
 
 .family-hero button {
@@ -3242,7 +3287,7 @@ p {
     width: calc(100% - 28px);
     max-width: 980px;
     overflow-x: hidden;
-    padding: 18px 0 40px;
+    padding: calc(18px + env(safe-area-inset-top)) 0 40px;
   }
 
   .public-app .panel,
@@ -3784,7 +3829,7 @@ p {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
     background: var(--navy);
     box-shadow: 0 1px 0 var(--border);
   }
@@ -3802,6 +3847,7 @@ p {
     width: 44px;
     min-width: 44px;
     min-height: 44px;
+    margin-top: 0;
     place-items: center;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.1);

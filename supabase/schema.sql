@@ -9,6 +9,10 @@ create table if not exists public.teams (
   head_coach text,
   monthly_dues numeric(10, 2) not null default 0,
   daily_pitch_limit integer not null default 75,
+  primary_color text not null default '#c92931',
+  secondary_color text not null default '#111827',
+  accent_color text not null default '#d39a24',
+  logo_url text,
   join_code text unique not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
@@ -19,6 +23,10 @@ alter table public.teams add column if not exists location text default 'Texas';
 alter table public.teams add column if not exists head_coach text;
 alter table public.teams add column if not exists monthly_dues numeric(10, 2) not null default 0;
 alter table public.teams add column if not exists daily_pitch_limit integer not null default 75;
+alter table public.teams add column if not exists primary_color text not null default '#c92931';
+alter table public.teams add column if not exists secondary_color text not null default '#111827';
+alter table public.teams add column if not exists accent_color text not null default '#d39a24';
+alter table public.teams add column if not exists logo_url text;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
