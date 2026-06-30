@@ -1584,6 +1584,8 @@ p {
 
 .dashboard-page > .action-panel,
 .dashboard-page > .broadcast-alert {
+  align-items: flex-start;
+  min-height: 96px;
   padding: 14px 48px 48px 16px;
 }
 
@@ -1596,6 +1598,18 @@ p {
   align-items: center;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.dashboard-page > .action-panel .banner-actions button,
+.dashboard-page > .broadcast-alert .banner-actions button {
+  width: auto;
+  min-width: 0;
+  min-height: 30px;
+  max-width: 180px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  line-height: 1;
+  padding: 0 12px;
 }
 
 .dashboard-page > .action-panel .icon-dismiss,
@@ -4568,11 +4582,11 @@ p {
     min-width: 0;
     gap: 12px;
     border-radius: 14px;
-    padding: 14px 14px 50px;
+    padding: 14px 42px 48px 14px;
   }
 
-  .action-panel > div:last-child,
-  .broadcast-alert > div:last-child {
+  .dashboard-page > .action-panel .banner-actions,
+  .dashboard-page > .broadcast-alert .banner-actions {
     position: absolute;
     right: 12px;
     bottom: 10px;
@@ -4587,9 +4601,17 @@ p {
     min-height: 28px;
     border-radius: 9px;
     font-size: 0.76rem;
-    max-width: calc(100vw - 72px);
+    max-width: 150px;
     padding: 0 10px;
     white-space: nowrap;
+  }
+
+  .dashboard-page > .action-panel .banner-actions button,
+  .dashboard-page > .broadcast-alert .banner-actions button {
+    min-height: 28px;
+    max-width: 150px;
+    font-size: 0.76rem;
+    padding: 0 10px;
   }
 
   .action-panel .icon-dismiss,
