@@ -750,6 +750,13 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
     setDismissedBroadcastKey(broadcastDismissKey)
   }
 
+  function startGameMode(event) {
+    if (!event) return
+    sessionStorage.setItem('huddleup:selectedGameId', event.id)
+    sessionStorage.setItem('huddleup:gameMode', 'active')
+    onPage('lineup')
+  }
+
   return (
     <div className="page-stack dashboard-page">
       <PageHeader title={isFollower ? 'Follower Dashboard' : isParent ? 'Parent Dashboard' : 'Coach Dashboard'} subtitle={`${team?.name} · ${team?.season || 'Current season'}`} />
@@ -870,6 +877,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
           <footer>
             <Badge label={nextEvent?.event_type || 'Event'} />
+            {nextEvent?.event_type === 'game' && <button type="button" onClick={() => startGameMode(nextEvent)}>Start Game Mode</button>}
             <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
           </footer>
         </section>
@@ -1228,6 +1236,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
 
   function buildLineup(event) {
     sessionStorage.setItem('huddleup:selectedGameId', event.id)
+    sessionStorage.setItem('huddleup:gameMode', 'active')
     onPage('lineup')
   }
 
@@ -1456,6 +1465,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const [savedLineupAt, setSavedLineupAt] = useState('')
   const [boxScore, setBoxScore] = useState({})
   const [activeTool, setActiveTool] = useState('defense')
+  const [gameModeActive, setGameModeActive] = useState(() => sessionStorage.getItem('huddleup:gameMode') === 'active')
   const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
@@ -1510,6 +1520,11 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
     setActiveInning((current) => Math.min(inningCount, current + 1))
   }
 
+  function exitGameMode() {
+    sessionStorage.removeItem('huddleup:gameMode')
+    setGameModeActive(false)
+  }
+
   function updateStat(playerId, stat, value) {
     setBoxScore((current) => ({
       ...current,
@@ -1539,12 +1554,13 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   ]
 
   return (
-    <div className="page-stack lineup-page">
-      <PageHeader title="Game Day" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
+    <div className={`page-stack lineup-page ${gameModeActive ? 'game-mode-active' : ''}`}>
+      <PageHeader title={gameModeActive ? 'Game Mode' : 'Game Day'} subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
       {!selectedGame && <EmptyState title="No games yet" body="Add games to the schedule first, then build each lineup from here." action="Add Schedule" onAction={() => onPage('schedule')} />}
       {selectedGame && (
         <section className="game-day-command">
           <div className="game-day-main">
+            {gameModeActive && <span className="game-mode-pill">Game Mode Active</span>}
             <label>Scheduled Game
               <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
                 {games.map((game) => <option key={game.id} value={game.id}>{game.title} · {formatDate(game.starts_at)}</option>)}
@@ -1557,8 +1573,14 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
             </div>
           </div>
           <div className="game-day-actions">
+            <button className="soft-button" type="button" onClick={() => setActiveTool('order')}>Batting</button>
+            <button className="soft-button" type="button" onClick={() => setActiveTool('defense')}>Defense</button>
+            <button className="soft-button" type="button" onClick={() => setActiveTool('stats')}>Box Score</button>
+            <button className="soft-button" type="button" onClick={() => onPage('pitch')}>Pitch Counts</button>
+            <button className="soft-button" type="button" onClick={() => onPage('messages')}>Broadcast</button>
             <button className="soft-button" type="button" onClick={saveLineup}>Save Plan</button>
             <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
+            {gameModeActive && <button className="quiet-button" type="button" onClick={exitGameMode}>Exit Mode</button>}
           </div>
         </section>
       )}
@@ -3222,7 +3244,7 @@ function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onSco
   const isCancelled = event.status === 'cancelled'
   const isGame = event.event_type === 'game'
   const isPast = new Date(event.starts_at) < new Date()
-  const primaryGameAction = isPast ? 'Box Score' : 'Game Day'
+  const primaryGameAction = isPast ? 'Box Score' : 'Game Mode'
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>

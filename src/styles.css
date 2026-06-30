@@ -3078,6 +3078,21 @@ p {
   min-width: 0;
 }
 
+.game-mode-pill {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+
 .game-day-main label {
   display: grid;
   gap: 7px;
@@ -3114,8 +3129,21 @@ p {
 
 .game-day-actions button,
 .lineup-save-row button {
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 34px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  padding: 0 11px;
+}
+
+.quiet-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-strong);
+}
+
+.game-mode-active .game-day-command {
+  border-color: rgba(201, 41, 49, 0.28);
+  background: linear-gradient(135deg, #fffafa, var(--surface));
 }
 
 .game-day-overview {
