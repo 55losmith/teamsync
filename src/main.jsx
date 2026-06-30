@@ -392,7 +392,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const visibleNav = isCoach
     ? navItems
     : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
-  const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
+  const unreadNotifications = visibleData.notifications.filter((notification) => !notification.read_at).length
   const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'dues']
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
@@ -418,6 +418,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
               <span className="nav-label">{label}</span>
               {key === 'messages' && actionCounts.unreadMessages > 0 && <strong className="nav-badge">{actionCounts.unreadMessages}</strong>}
               {key === 'dues' && actionCounts.openDues > 0 && <strong className="nav-badge">{actionCounts.openDues}</strong>}
+              {key === 'account' && unreadNotifications > 0 && <strong className="nav-badge">{unreadNotifications}</strong>}
             </button>
           ))}
         </nav>
@@ -430,7 +431,11 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
             </div>
           </div>
           <button className="signout" type="button" onClick={onSignOut}>↪ Sign Out</button>
-          {unreadNotifications > 0 && <small className="notification-pill">{unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}</small>}
+          {unreadNotifications > 0 && (
+            <button className="notification-pill" type="button" onClick={() => onPage('account')}>
+              {unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}
+            </button>
+          )}
           {isCoach && <small className="muted-dark">{data.roster.length} players · Code {team?.join_code}</small>}
         </div>
       </aside>
@@ -442,6 +447,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
             <strong>{mobileLabel(label)}</strong>
             {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
             {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
+            {key === 'account' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
           </button>
         ))}
         {mobileMoreNav.length > 0 && (
@@ -467,6 +473,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
                   <strong>{label}</strong>
                   {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
                   {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
+                  {key === 'account' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
                 </button>
               ))}
             </nav>
@@ -2511,7 +2518,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   )
 }
 
-function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
+function AccountPage({ data, fullData, onPage, onRefresh, profile, setMessage, team }) {
   const [fullName, setFullName] = useState(profile.full_name || '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -2589,8 +2596,81 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
           <p className="form-help">This changes the password for the account you are signed into right now.</p>
         </form>
       </section>
+      <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />
       <PushNotificationsPanel onRefresh={onRefresh} profile={profile} setMessage={setMessage} team={team} />
     </div>
+  )
+}
+
+function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
+  const notifications = [...(data.notifications || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+  const unreadNotifications = notifications.filter((notification) => !notification.read_at)
+  const recentNotifications = notifications.slice(0, 12)
+
+  async function markRead(notificationIds, successMessage = 'Notifications updated.') {
+    if (!notificationIds.length) return
+    setMessage('')
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .in('id', notificationIds)
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setMessage(successMessage)
+    onRefresh()
+  }
+
+  async function openNotification(notification) {
+    if (!notification.read_at) await markRead([notification.id], '')
+    onPage(notificationPage(notification.notification_type))
+  }
+
+  return (
+    <section className="panel notification-center">
+      <div className="section-row">
+        <div>
+          <span className="form-section-title">Notification Center</span>
+          <h2>Unread Alerts</h2>
+        </div>
+        {unreadNotifications.length > 0 && (
+          <button className="ghost fit" type="button" onClick={() => markRead(unreadNotifications.map((notification) => notification.id), 'All notifications marked read.')}>
+            Mark All Read
+          </button>
+        )}
+      </div>
+      {recentNotifications.length === 0 ? (
+        <div className="empty-state compact">
+          <strong>No Notifications Yet</strong>
+          <span>Game changes, dues, broadcasts, and messages will show up here.</span>
+        </div>
+      ) : (
+        <div className="notification-list">
+          {recentNotifications.map((notification) => (
+            <article className={`notification-row ${notification.read_at ? '' : 'unread'}`} key={notification.id}>
+              <span className="notification-dot" aria-hidden="true" />
+              <div>
+                <div className="notification-title-row">
+                  <strong>{notification.title || titleCase(notification.notification_type || 'Update')}</strong>
+                  <Badge label={notification.notification_type || 'Update'} />
+                </div>
+                {notification.body && <p>{notification.body}</p>}
+                <small>{formatDate(notification.created_at)}{notification.read_at ? ' · Read' : ' · New'}</small>
+              </div>
+              <div className="notification-actions">
+                <button className="ghost fit" type="button" onClick={() => openNotification(notification)}>Open</button>
+                {!notification.read_at && (
+                  <button className="icon-button" aria-label="Mark Read" type="button" onClick={() => markRead([notification.id])}>×</button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -3329,6 +3409,14 @@ function getActionCounts(data) {
     unreadMessages: data.notifications.filter((notification) => !notification.read_at && notification.notification_type === 'message').length,
     openDues: data.dues.filter(needsDueAction).length,
   }
+}
+
+function notificationPage(type) {
+  if (type === 'dues') return 'dues'
+  if (type === 'message' || type === 'broadcast') return 'messages'
+  if (type === 'schedule') return 'schedule'
+  if (type === 'pitch') return 'pitch'
+  return 'dashboard'
 }
 
 function needsDueAction(due) {
