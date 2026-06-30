@@ -11,6 +11,7 @@ const supabase =
 
 const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'account', 'settings']
+const emptyTeamData = { roster: [], parentClaims: [], events: [], lineupPlans: [], playerGameStats: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] }
 
 function getPageFromLocation() {
   if (typeof window === 'undefined') return 'dashboard'
@@ -99,7 +100,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [team, setTeam] = useState(null)
-  const [data, setData] = useState({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+  const [data, setData] = useState(emptyTeamData)
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
   const [activePage, setActivePage] = useState(getPageFromLocation)
@@ -135,7 +136,7 @@ function App() {
       setSession(nextSession)
       setProfile(null)
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData(emptyTeamData)
       setActivePage('dashboard')
     })
 
@@ -188,16 +189,18 @@ function App() {
 
     if (!profileRow.team_id) {
       setTeam(null)
-      setData({ roster: [], parentClaims: [], events: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] })
+      setData(emptyTeamData)
       setLoading(false)
       return
     }
 
-    const [teamResult, rosterResult, claimResult, eventResult, dueResult, sponsorshipResult, sponsorshipApplicationResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
+    const [teamResult, rosterResult, claimResult, eventResult, lineupResult, gameStatsResult, dueResult, sponsorshipResult, sponsorshipApplicationResult, announcementResult, pitchResult, conversationResult, messageResult, memberResult, notificationResult] = await Promise.all([
       supabase.from('teams').select('*').eq('id', profileRow.team_id).maybeSingle(),
       supabase.from('roster_members').select('*').eq('team_id', profileRow.team_id).order('player_name'),
       supabase.from('roster_parent_claims').select('*').eq('team_id', profileRow.team_id),
       supabase.from('events').select('*').eq('team_id', profileRow.team_id).order('starts_at'),
+      supabase.from('lineup_plans').select('*').eq('team_id', profileRow.team_id).order('updated_at', { ascending: false }),
+      supabase.from('player_game_stats').select('*').eq('team_id', profileRow.team_id),
       supabase
         .from('dues')
         .select('*, roster_members(player_name, parent_email)')
@@ -248,7 +251,7 @@ function App() {
         .order('created_at', { ascending: false }),
     ])
 
-    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || dueResult.error || sponsorshipResult.error || sponsorshipApplicationResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
+    const error = teamResult.error || rosterResult.error || claimResult.error || eventResult.error || lineupResult.error || gameStatsResult.error || dueResult.error || sponsorshipResult.error || sponsorshipApplicationResult.error || announcementResult.error || pitchResult.error || conversationResult.error || messageResult.error || memberResult.error || notificationResult.error
     if (error) setMessage(error.message)
 
     setTeam(teamResult.data || null)
@@ -256,6 +259,8 @@ function App() {
       roster: rosterResult.data || [],
       parentClaims: claimResult.data || [],
       events: eventResult.data || [],
+      lineupPlans: lineupResult.data || [],
+      playerGameStats: gameStatsResult.data || [],
       dues: dueResult.data || [],
       sponsorships: sponsorshipResult.data || [],
       sponsorshipApplications: sponsorshipApplicationResult.data || [],
@@ -1061,7 +1066,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   )
 }
 
-function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
+function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
   const [tab, setTab] = useState('upcoming')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForms.event)
@@ -1075,13 +1080,8 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
 
   useEffect(() => {
     if (!statsEventId) return
-    try {
-      const saved = JSON.parse(localStorage.getItem(`teamsync:lineup:${statsEventId}`) || '{}')
-      setScheduleBoxScore(saved.boxScore || {})
-    } catch {
-      setScheduleBoxScore({})
-    }
-  }, [statsEventId])
+    setScheduleBoxScore(getBoxScoreForEvent(data, statsEventId))
+  }, [statsEventId, data])
 
   async function submit(event) {
     event.preventDefault()
@@ -1194,12 +1194,27 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
     else onRefresh()
   }
 
-  function saveScheduleBoxScore() {
+  async function saveScheduleBoxScore() {
     if (!statsEvent) return
-    const key = `teamsync:lineup:${statsEvent.id}`
-    const current = JSON.parse(localStorage.getItem(key) || '{}')
-    localStorage.setItem(key, JSON.stringify({ ...current, boxScore: scheduleBoxScore, savedAt: new Date().toISOString() }))
+    setMessage('')
+    const error = await saveGamePlan({
+      boxScore: scheduleBoxScore,
+      eventId: statsEvent.id,
+      existingPlan: data.lineupPlans.find((plan) => plan.event_id === statsEvent.id),
+      roster: data.roster,
+      teamId: team.id,
+    })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
     setMessage('Box score saved for this game.')
+    onRefresh()
+  }
+
+  function buildLineup(event) {
+    sessionStorage.setItem('huddleup:selectedGameId', event.id)
+    onPage('lineup')
   }
 
   return (
@@ -1246,6 +1261,7 @@ function SchedulePage({ data, editable, onRefresh, setMessage, team }) {
             key={event.id}
             onCancel={() => cancelEvent(event)}
             onEdit={() => startEdit(event)}
+            onLineup={() => buildLineup(event)}
             onStats={() => setStatsEventId(event.id)}
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
@@ -1409,12 +1425,12 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   )
 }
 
-function LineupPage({ data, onPage, team }) {
+function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const games = data.events
     .filter((event) => event.event_type === 'game' && event.status !== 'cancelled')
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
   const upcomingGames = games.filter((event) => new Date(event.starts_at) >= new Date())
-  const [selectedGameId, setSelectedGameId] = useState(() => upcomingGames[0]?.id || games[0]?.id || '')
+  const [selectedGameId, setSelectedGameId] = useState(() => sessionStorage.getItem('huddleup:selectedGameId') || upcomingGames[0]?.id || games[0]?.id || '')
   const selectedGame = games.find((event) => event.id === selectedGameId) || games[0]
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const restingIds = new Set(availability.resting.map((row) => row.player.id))
@@ -1426,23 +1442,16 @@ function LineupPage({ data, onPage, team }) {
   const [savedLineupAt, setSavedLineupAt] = useState('')
   const [boxScore, setBoxScore] = useState({})
   const [activeTool, setActiveTool] = useState('defense')
-  const lineupStorageKey = selectedGame ? `teamsync:lineup:${selectedGame.id}` : ''
+  const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
-    if (!lineupStorageKey) return
-    try {
-      const saved = JSON.parse(localStorage.getItem(lineupStorageKey) || '{}')
-      setBattingOrder(Array.isArray(saved.battingOrder) && saved.battingOrder.length ? saved.battingOrder : data.roster.map((player) => player.id))
-      setDefense(saved.defense || {})
-      setBoxScore(saved.boxScore || {})
-      setSavedLineupAt(saved.savedAt || '')
-    } catch {
-      setBattingOrder(data.roster.map((player) => player.id))
-      setDefense({})
-      setBoxScore({})
-      setSavedLineupAt('')
-    }
-  }, [lineupStorageKey, data.roster])
+    if (!selectedGame) return
+    sessionStorage.setItem('huddleup:selectedGameId', selectedGame.id)
+    setBattingOrder(Array.isArray(selectedPlan?.batting_order) && selectedPlan.batting_order.length ? selectedPlan.batting_order : data.roster.map((player) => player.id))
+    setDefense(selectedPlan?.defense_plan || {})
+    setBoxScore(getBoxScoreForEvent(data, selectedGame.id, selectedPlan))
+    setSavedLineupAt(selectedPlan?.updated_at || '')
+  }, [data, selectedGame, selectedPlan])
 
   function movePlayer(playerId, direction) {
     setBattingOrder((current) => {
@@ -1462,14 +1471,28 @@ function LineupPage({ data, onPage, team }) {
     }))
   }
 
-  function saveLineup() {
-    if (!lineupStorageKey) return
-    localStorage.setItem(lineupStorageKey, JSON.stringify({ battingOrder, boxScore, defense, savedAt: new Date().toISOString() }))
+  async function saveLineup() {
+    if (!selectedGame) return
+    const error = await saveGamePlan({
+      battingOrder,
+      boxScore,
+      defense,
+      eventId: selectedGame.id,
+      existingPlan: selectedPlan,
+      roster: data.roster,
+      teamId: team.id,
+    })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
     setSavedLineupAt(new Date().toISOString())
+    setMessage('Game day plan saved.')
+    onRefresh()
   }
 
-  function saveAndNextInning() {
-    saveLineup()
+  async function saveAndNextInning() {
+    await saveLineup()
     setActiveInning((current) => Math.min(inningCount, current + 1))
   }
 
@@ -3106,7 +3129,7 @@ function PositionPicker({ onChange, value }) {
   )
 }
 
-function EventCard({ editable, event, onCancel, onEdit, onStats, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
+function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
@@ -3123,7 +3146,8 @@ function EventCard({ editable, event, onCancel, onEdit, onStats, onScoreChange, 
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
-            {event.event_type === 'game' && <button type="button" onClick={onStats}>Stats</button>}
+            {event.event_type === 'game' && <button type="button" onClick={onLineup}>Game Day</button>}
+            {event.event_type === 'game' && <button type="button" onClick={onStats}>Box Score</button>}
             <button type="button" onClick={onEdit}>Edit</button>
             {!isCancelled && <button type="button" onClick={onCancel}>Cancel Event</button>}
           </div>
@@ -3407,6 +3431,64 @@ function getRecipientOptions(data, profile) {
 
 function resolveRecipient(key, options) {
   return options.find((option) => option.key === key) || options[0]
+}
+
+function getBoxScoreForEvent(data, eventId, lineupPlan) {
+  const rows = data.playerGameStats.filter((stat) => stat.event_id === eventId)
+  const boxScore = rows.reduce((score, row) => ({
+    ...score,
+    [row.roster_member_id]: {
+      ab: row.at_bats || '',
+      bb: row.walks || '',
+      h: row.hits || '',
+      r: row.runs || '',
+      rbi: row.rbi || '',
+      so: row.strikeouts || '',
+    },
+  }), {})
+  const plan = lineupPlan || data.lineupPlans.find((item) => item.event_id === eventId)
+  if (plan?.box_score_notes) boxScore.notes = plan.box_score_notes
+  return boxScore
+}
+
+async function saveGamePlan({ battingOrder, boxScore = {}, defense, eventId, existingPlan, roster, teamId }) {
+  const planPayload = {
+    batting_order: battingOrder || existingPlan?.batting_order || [],
+    box_score_notes: boxScore.notes || existingPlan?.box_score_notes || '',
+    defense_plan: defense || existingPlan?.defense_plan || {},
+    event_id: eventId,
+    team_id: teamId,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error: planError } = await supabase
+    .from('lineup_plans')
+    .upsert(planPayload, { onConflict: 'event_id' })
+
+  if (planError) return planError
+
+  const statRows = roster.map((player) => {
+    const playerStats = boxScore[player.id] || {}
+    return {
+      at_bats: Number(playerStats.ab || 0),
+      event_id: eventId,
+      hits: Number(playerStats.h || 0),
+      rbi: Number(playerStats.rbi || 0),
+      roster_member_id: player.id,
+      runs: Number(playerStats.r || 0),
+      strikeouts: Number(playerStats.so || 0),
+      team_id: teamId,
+      updated_at: new Date().toISOString(),
+      walks: Number(playerStats.bb || 0),
+    }
+  })
+
+  if (!statRows.length) return null
+  const { error: statsError } = await supabase
+    .from('player_game_stats')
+    .upsert(statRows, { onConflict: 'event_id,roster_member_id' })
+
+  return statsError || null
 }
 
 async function saveRow(table, payload, empty, setForm, onRefresh, setMessage) {
