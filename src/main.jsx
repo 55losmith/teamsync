@@ -761,7 +761,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             <div>
               <strong>Action Needed</strong>
               <p>{[
-                actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} Unread Message${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
+                actionCounts.unreadMessages > 0 ? `${actionCounts.unreadMessages} Unread Alert${actionCounts.unreadMessages === 1 ? '' : 's'}` : '',
                 showFinanceAction ? `${actionCounts.openDues} Open Due${actionCounts.openDues === 1 ? '' : 's'}` : '',
               ].filter(Boolean).join(' · ')}</p>
             </div>
@@ -836,7 +836,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
             )}
             <article className={`family-card ${actionCounts.unreadMessages ? 'needs-action' : ''}`}>
               <span>Messages</span>
-              <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No Updates Yet'}</strong>
+              <strong>{actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread Alert${actionCounts.unreadMessages === 1 ? '' : 's'}` : latestConversation ? latestConversation.subject : recentBroadcast ? recentBroadcast.title : 'No Updates Yet'}</strong>
               <button type="button" onClick={() => onPage('messages')}>Open Messages</button>
             </article>
           </div>
@@ -859,7 +859,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
         <div className="dashboard-summary-stack">
           <Stat icon="dues" label="Finances" value={dueTotals.balance > 0 ? `${money(dueTotals.balance)} Open` : 'Balanced'} onClick={() => onPage('dues')} />
           <Stat icon="schedule" label="Upcoming" value={`${upcoming.length} Events`} onClick={() => onPage('schedule')} />
-          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread` : 'No New'} onClick={() => onPage('messages')} />
+          <Stat icon="messages" label="Messages" value={actionCounts.unreadMessages ? `${actionCounts.unreadMessages} Unread Alert${actionCounts.unreadMessages === 1 ? '' : 's'}` : 'No New'} onClick={() => onPage('messages')} />
         </div>
         <section className="today-card">
           <p>{nextEvent ? 'Today' : 'Next Up'}</p>
@@ -2433,7 +2433,7 @@ function MessagesPage({ data, editable, onPage, onRefresh, profile, setMessage, 
   return (
     <div className="page-stack">
       <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${unreadNotifications.length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
-      {data.notifications.length > 0 && <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />}
+      {data.notifications.length > 0 && <NotificationCenter compact data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />}
       <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId(''); setSelectedBroadcastId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && profile.role === 'coach' && (
         <form className="panel form" onSubmit={submitBroadcast}>
@@ -2570,10 +2570,13 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
   )
 }
 
-function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
+function NotificationCenter({ compact = false, data, onPage, onRefresh, setMessage }) {
+  const [showAll, setShowAll] = useState(false)
   const notifications = [...(data.notifications || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
   const unreadNotifications = notifications.filter((notification) => !notification.read_at)
-  const recentNotifications = notifications.slice(0, 12)
+  const defaultNotifications = unreadNotifications.length ? unreadNotifications : notifications
+  const recentNotifications = compact && !showAll ? defaultNotifications.slice(0, 3) : notifications.slice(0, 12)
+  const hiddenAlertCount = Math.max(0, defaultNotifications.length - recentNotifications.length)
 
   async function markRead(notificationIds, successMessage = 'Notifications updated.') {
     if (!notificationIds.length) return
@@ -2598,17 +2601,29 @@ function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
   }
 
   return (
-    <section className="panel notification-center">
+    <section className={`panel notification-center ${compact ? 'compact-alerts' : ''}`}>
       <div className="section-row">
         <div>
           <span className="form-section-title">Alerts</span>
-          <h2>Recent Notifications</h2>
+          <h2>{unreadNotifications.length ? `${unreadNotifications.length} Needs Attention` : 'Recent Alerts'}</h2>
         </div>
-        {unreadNotifications.length > 0 && (
-          <button className="ghost fit" type="button" onClick={() => markRead(unreadNotifications.map((notification) => notification.id), 'All notifications marked read.')}>
-            Mark All Read
-          </button>
-        )}
+        <div className="notification-header-actions">
+          {compact && hiddenAlertCount > 0 && (
+            <button className="ghost fit" type="button" onClick={() => setShowAll(true)}>
+              View All
+            </button>
+          )}
+          {compact && showAll && (
+            <button className="ghost fit" type="button" onClick={() => setShowAll(false)}>
+              Show Less
+            </button>
+          )}
+          {unreadNotifications.length > 0 && (
+            <button className="ghost fit" type="button" onClick={() => markRead(unreadNotifications.map((notification) => notification.id), 'All alerts marked read.')}>
+              Mark All Read
+            </button>
+          )}
+        </div>
       </div>
       {recentNotifications.length === 0 ? (
         <div className="empty-state compact">
@@ -2638,6 +2653,7 @@ function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
           ))}
         </div>
       )}
+      {compact && hiddenAlertCount > 0 && !showAll && <small className="alert-tray-note">{hiddenAlertCount} more alert{hiddenAlertCount === 1 ? '' : 's'} hidden</small>}
     </section>
   )
 }
