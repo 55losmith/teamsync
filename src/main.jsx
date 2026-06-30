@@ -606,18 +606,18 @@ function AuthScreen() {
           </div>
           {isSignup && (
             <>
-              <label>Full name<input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>
+              <label>Full name<input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required /></label>
               <div className="tabs compact" role="tablist" aria-label="Role">
                 <button className={role === 'coach' ? 'active' : ''} type="button" onClick={() => setRole('coach')}>Coach</button>
                 <button className={role === 'parent' ? 'active' : ''} type="button" onClick={() => setRole('parent')}>Parent</button>
                 {role === 'follower' && <button className="active" type="button">Follower</button>}
               </div>
-              <label>Existing team code<input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Example: AB12CD34" /></label>
+              <label>Existing team code<input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Example: AB12CD34" autoCapitalize="characters" autoComplete="off" spellCheck="false" /></label>
               <p className="form-help">{teamCodeHelp}</p>
             </>
           )}
-          <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-          {mode !== 'reset' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength="6" required /></label>}
+          <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" autoCapitalize="none" autoComplete={isSignup ? 'email' : 'username'} spellCheck="false" required /></label>
+          {mode !== 'reset' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignup ? 'new-password' : 'current-password'} minLength="6" required /></label>}
           <button className="primary" type="submit">{mode === 'reset' ? 'Send Reset Link' : isSignup ? 'Create account' : 'Log in'}</button>
           <button type="button" onClick={() => setMode(mode === 'reset' ? 'login' : 'reset')}>{mode === 'reset' ? 'Back to login' : 'Forgot password?'}</button>
           {message && <p className="notice">{message}</p>}

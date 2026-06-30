@@ -299,10 +299,10 @@ p {
 }
 
 .public-app {
-  width: min(980px, calc(100% - 32px));
-  max-width: 100%;
+  width: 100%;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 28px 0 56px;
+  padding: 28px 16px 56px;
   overflow-x: hidden;
 }
 
@@ -343,6 +343,17 @@ p {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+.auth-grid .panel {
+  min-width: 0;
+}
+
+.auth-grid input,
+.auth-grid select,
+.auth-grid textarea {
+  font-size: 16px;
+  max-width: 100%;
 }
 
 .auth-copy h1 {
@@ -3542,10 +3553,10 @@ p {
   }
 
   .public-app {
-    width: calc(100% - 28px);
-    max-width: 980px;
+    width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
-    padding: calc(18px + env(safe-area-inset-top)) 0 40px;
+    padding: calc(18px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 40px max(14px, env(safe-area-inset-left));
   }
 
   .public-app .panel,
@@ -3559,6 +3570,11 @@ p {
   .public-topbar {
     gap: 12px;
     margin-bottom: 22px;
+  }
+
+  .public-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .auth-copy h1 {
