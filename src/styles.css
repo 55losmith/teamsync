@@ -3135,14 +3135,21 @@ p {
   align-items: start;
 }
 
-.lineup-page .active-tool {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-}
-
 .defense-card {
   display: grid;
   gap: 12px;
+}
+
+.lineup-page .batting-card,
+.lineup-page .defense-card,
+.lineup-page .box-score-card {
+  display: none;
+}
+
+.lineup-page .active-tool {
+  display: grid;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .batting-list,
