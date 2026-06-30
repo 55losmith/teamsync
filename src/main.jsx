@@ -10,7 +10,7 @@ const supabase =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
 
 const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'notifications', 'account', 'settings']
+const pageKeys = ['dashboard', 'lineup', 'roster', 'schedule', 'pitch', 'dues', 'messages', 'account', 'settings']
 const emptyTeamData = { roster: [], parentClaims: [], events: [], lineupPlans: [], playerGameStats: [], dues: [], sponsorships: [], sponsorshipApplications: [], announcements: [], pitchCounts: [], conversations: [], conversationMessages: [], members: [], notifications: [] }
 
 function getPageFromLocation() {
@@ -79,7 +79,6 @@ const navItems = [
   ['pitch', '⌁', 'Pitch Counts'],
   ['dues', '$', 'Finances'],
   ['messages', '▱', 'Messages'],
-  ['notifications', '◉', 'Notifications'],
   ['account', '○', 'Account'],
   ['settings', '⚙', 'Team Settings'],
 ]
@@ -387,9 +386,9 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
   const actionCounts = getActionCounts(visibleData)
-  const parentNavKeys = ['dashboard', 'schedule', 'messages', 'dues', 'notifications', 'account']
+  const parentNavKeys = ['dashboard', 'schedule', 'messages', 'dues', 'account']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
-  const followerNavKeys = ['dashboard', 'schedule', 'messages', 'notifications', 'account']
+  const followerNavKeys = ['dashboard', 'schedule', 'messages', 'account']
   const visibleNav = isCoach
     ? navItems
     : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
@@ -419,7 +418,6 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
               <span className="nav-label">{label}</span>
               {key === 'messages' && actionCounts.unreadMessages > 0 && <strong className="nav-badge">{actionCounts.unreadMessages}</strong>}
               {key === 'dues' && actionCounts.openDues > 0 && <strong className="nav-badge">{actionCounts.openDues}</strong>}
-              {key === 'notifications' && unreadNotifications > 0 && <strong className="nav-badge">{unreadNotifications}</strong>}
             </button>
           ))}
         </nav>
@@ -433,7 +431,7 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
           </div>
           <button className="signout" type="button" onClick={onSignOut}>↪ Sign Out</button>
           {unreadNotifications > 0 && (
-            <button className="notification-pill" type="button" onClick={() => onPage('notifications')}>
+            <button className="notification-pill" type="button" onClick={() => onPage('messages')}>
               {unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}
             </button>
           )}
@@ -448,7 +446,6 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
             <strong>{mobileLabel(label)}</strong>
             {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
             {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
-            {key === 'notifications' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
           </button>
         ))}
         {mobileMoreNav.length > 0 && (
@@ -474,7 +471,6 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
                   <strong>{label}</strong>
                   {key === 'dues' && actionCounts.openDues > 0 && <b>{actionCounts.openDues}</b>}
                   {key === 'messages' && actionCounts.unreadMessages > 0 && <b>{actionCounts.unreadMessages}</b>}
-                  {key === 'notifications' && unreadNotifications > 0 && <b>{unreadNotifications}</b>}
                 </button>
               ))}
             </nav>
@@ -527,7 +523,6 @@ function MainPage(props) {
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
     dues: <DuesPage {...pageProps} editable={isCoach} />,
     messages: <MessagesPage {...pageProps} editable={isCoach || props.profile.role === 'parent'} />,
-    notifications: <NotificationsPage {...pageProps} />,
     account: <AccountPage {...pageProps} />,
     settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
@@ -2328,7 +2323,7 @@ function SponsorshipCard({ onEdit, sponsorship }) {
   )
 }
 
-function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) {
+function MessagesPage({ data, editable, onPage, onRefresh, profile, setMessage, team }) {
   const [form, setForm] = useState(emptyForms.announcement)
   const [conversationForm, setConversationForm] = useState(emptyForms.conversation)
   const [mode, setMode] = useState(profile.role === 'follower' ? 'broadcast' : 'conversation')
@@ -2339,7 +2334,7 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
   const recipientOptions = getRecipientOptions(data, profile)
   const selectedConversation = data.conversations.find((conversation) => conversation.id === selectedConversationId)
   const selectedBroadcast = data.announcements.find((announcement) => announcement.id === selectedBroadcastId)
-  const unreadMessages = data.notifications.filter((notification) => !notification.read_at && notification.notification_type === 'message')
+  const unreadNotifications = data.notifications.filter((notification) => !notification.read_at)
 
   function startBroadcastReply(broadcast) {
     setMode('conversation')
@@ -2435,38 +2430,10 @@ function MessagesPage({ data, editable, onRefresh, profile, setMessage, team }) 
     onRefresh()
   }
 
-  async function markMessagesRead() {
-    if (!unreadMessages.length) return
-    setMessage('')
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .in('id', unreadMessages.map((notification) => notification.id))
-
-    if (error) {
-      setMessage(error.message)
-      return
-    }
-
-    setMessage('Messages marked as read.')
-    onRefresh()
-  }
-
   return (
     <div className="page-stack">
-      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${data.notifications.filter((notification) => !notification.read_at).length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
-      {unreadMessages.length > 0 && (
-        <section className="action-panel compact-action">
-          <div>
-            <span className="alert-dot" />
-            <div>
-              <strong>{unreadMessages.length} unread message notification{unreadMessages.length === 1 ? '' : 's'}</strong>
-              <p>Open the latest threads or mark them read once handled.</p>
-            </div>
-          </div>
-          <button type="button" onClick={markMessagesRead}>Mark Read</button>
-        </section>
-      )}
+      <PageHeader title="Messages" subtitle={`${data.announcements.length} broadcasts · ${data.conversations.length} conversations · ${unreadNotifications.length} unread`} action={editable && (mode === 'conversation' || profile.role === 'coach') && '+ New Message'} onAction={() => setShowForm(!showForm)} />
+      {data.notifications.length > 0 && <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />}
       <Segmented value={mode} onChange={(nextMode) => { setMode(nextMode); setSelectedConversationId(''); setSelectedBroadcastId('') }} options={profile.role === 'follower' ? [['broadcast', 'Broadcasts']] : [['conversation', 'Conversations'], ['broadcast', 'Broadcasts']]} />
       {showForm && mode === 'broadcast' && profile.role === 'coach' && (
         <form className="panel form" onSubmit={submitBroadcast}>
@@ -2603,19 +2570,6 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
   )
 }
 
-function NotificationsPage({ data, onPage, onRefresh, setMessage }) {
-  const unreadNotifications = data.notifications.filter((notification) => !notification.read_at).length
-  return (
-    <div className="page-stack">
-      <PageHeader
-        title="Notifications"
-        subtitle={`${unreadNotifications} unread alert${unreadNotifications === 1 ? '' : 's'}`}
-      />
-      <NotificationCenter data={data} onPage={onPage} onRefresh={onRefresh} setMessage={setMessage} />
-    </div>
-  )
-}
-
 function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
   const notifications = [...(data.notifications || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
   const unreadNotifications = notifications.filter((notification) => !notification.read_at)
@@ -2647,8 +2601,8 @@ function NotificationCenter({ data, onPage, onRefresh, setMessage }) {
     <section className="panel notification-center">
       <div className="section-row">
         <div>
-          <span className="form-section-title">Notification Center</span>
-          <h2>Unread Alerts</h2>
+          <span className="form-section-title">Alerts</span>
+          <h2>Recent Notifications</h2>
         </div>
         {unreadNotifications.length > 0 && (
           <button className="ghost fit" type="button" onClick={() => markRead(unreadNotifications.map((notification) => notification.id), 'All notifications marked read.')}>
@@ -3420,7 +3374,7 @@ function Badge({ label }) {
 
 function getActionCounts(data) {
   return {
-    unreadMessages: data.notifications.filter((notification) => !notification.read_at && notification.notification_type === 'message').length,
+    unreadMessages: data.notifications.filter((notification) => !notification.read_at).length,
     openDues: data.dues.filter(needsDueAction).length,
   }
 }
