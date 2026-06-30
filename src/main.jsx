@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createClient } from '@supabase/supabase-js'
 import './styles.css'
@@ -104,6 +104,11 @@ function App() {
   const [loading, setLoading] = useState(Boolean(supabase))
   const [message, setMessage] = useState('')
   const [activePage, setActivePage] = useState(getPageFromLocation)
+  const profileRef = useRef(null)
+
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
 
   useEffect(() => {
     function handlePopState() {
@@ -146,7 +151,7 @@ function App() {
   const loadWorkspace = useCallback(async () => {
     if (!session?.user) return
 
-    setLoading(true)
+    if (!profileRef.current) setLoading(true)
     setMessage('')
 
     let { data: profileRow, error: profileError } = await supabase
@@ -1690,6 +1695,8 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const [editingTournamentKey, setEditingTournamentKey] = useState('')
   const [tournamentEditForm, setTournamentEditForm] = useState({ title: '', amount: '', due_date: '' })
   const [monthDate, setMonthDate] = useState(new Date(today))
+  const dueFormRef = useRef(null)
+  const sponsorFormRef = useRef(null)
   const monthKey = getMonthKey(monthDate)
   const monthDues = data.dues.filter((due) => getMonthKey(due.due_date || due.created_at) === monthKey)
   const monthTotals = getTotals(monthDues)
@@ -1701,6 +1708,14 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
   const monthlyByPlayer = new Map(monthDues.filter((due) => due.due_type === 'monthly').map((due) => [due.roster_member_id, due]))
   const tournamentGroups = groupTournamentDues(data.dues)
   const financeTabs = editable ? [['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees'], ['sponsorships', '★ Sponsorships']] : [['monthly', '$ Monthly Dues'], ['tournament', '♕ Tournament Fees']]
+
+  useEffect(() => {
+    if (showForm) dueFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showForm, form.due_type])
+
+  useEffect(() => {
+    if (showSponsorForm) sponsorFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showSponsorForm])
 
   function openDuesForm(type = financeTab) {
     if (type === 'sponsorships') {
@@ -1785,6 +1800,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
       await sendPendingPushes(team.id, createdNotifications?.map((notification) => notification.id) || [])
     }
 
+    setFinanceTab(form.due_type === 'tournament' ? 'tournament' : 'monthly')
     setForm(emptyForms.due)
     setShowForm(false)
     onRefresh()
@@ -1812,6 +1828,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     }
     setSponsorForm(emptyForms.sponsorship)
     setEditingSponsorshipId(null)
+    setFinanceTab('sponsorships')
     setShowSponsorForm(false)
     onRefresh()
   }
@@ -1864,6 +1881,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
     }
     setEditingTournamentKey('')
     setTournamentEditForm({ title: '', amount: '', due_date: '' })
+    setFinanceTab('tournament')
     onRefresh()
   }
 
@@ -2002,7 +2020,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
         </section>
       )}
       {editable && showForm && (
-        <form className="panel form grid-form finance-form" onSubmit={submit}>
+        <form className="panel form grid-form finance-form" ref={dueFormRef} onSubmit={submit}>
           <div className="form-section-title">{form.due_type === 'monthly' ? 'Assign Monthly Dues' : 'Assign Tournament Fee'}</div>
           <input placeholder="Dues title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <select value={form.due_type} onChange={(e) => setForm({ ...form, due_type: e.target.value, title: e.target.value === 'monthly' ? 'Monthly Dues' : 'Tournament Fee' })}>
@@ -2036,7 +2054,7 @@ function DuesPage({ data, editable, onRefresh, setMessage, team }) {
         </form>
       )}
       {editable && showSponsorForm && (
-        <form className="panel form grid-form finance-form" onSubmit={submitSponsorship}>
+        <form className="panel form grid-form finance-form" ref={sponsorFormRef} onSubmit={submitSponsorship}>
           <div className="form-section-title">Add Sponsorship</div>
           <input placeholder="Sponsor name or company" value={sponsorForm.sponsor_name} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_name: e.target.value })} required />
           <select value={sponsorForm.purpose} onChange={(e) => setSponsorForm({ ...sponsorForm, purpose: e.target.value })}>
