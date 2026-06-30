@@ -2929,10 +2929,132 @@ p {
 
 .lineup-day-grid,
 .lineup-intel-grid,
-.lineup-grid {
+.lineup-grid,
+.game-day-overview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.game-day-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+}
+
+.game-day-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.game-day-main label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.game-day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-day-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 3px 10px;
+}
+
+.game-day-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.game-day-actions button,
+.lineup-save-row button {
+  min-height: 36px;
+  padding: 0 13px;
+}
+
+.game-day-overview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.game-day-overview article {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+}
+
+.game-day-overview span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.game-day-overview strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--foreground);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.game-day-overview p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.game-day-overview .warning {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.game-day-tabs {
+  display: flex;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 4px;
+  width: fit-content;
+}
+
+.game-day-tabs button {
+  min-height: 34px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-strong);
+  padding: 0 12px;
+}
+
+.game-day-tabs .active {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-sm);
 }
 
 .lineup-day-grid {
@@ -3011,6 +3133,11 @@ p {
 .lineup-grid {
   grid-template-columns: 1fr;
   align-items: start;
+}
+
+.lineup-page .active-tool {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .defense-card {
@@ -3522,8 +3649,69 @@ p {
   .inline-edit-form,
   .lineup-day-grid,
   .lineup-intel-grid,
-  .lineup-grid {
+  .lineup-grid,
+  .game-day-command,
+  .game-day-overview {
     grid-template-columns: 1fr;
+  }
+
+  .game-day-command {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .game-day-actions {
+    justify-content: stretch;
+  }
+
+  .game-day-actions button {
+    flex: 1 1 130px;
+  }
+
+  .game-day-overview {
+    gap: 10px;
+  }
+
+  .game-day-tabs {
+    position: sticky;
+    z-index: 4;
+    top: 0;
+    width: 100%;
+    background: rgba(245, 247, 251, 0.96);
+    backdrop-filter: blur(10px);
+  }
+
+  .game-day-tabs button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .lineup-page .batting-card,
+  .lineup-page .defense-card,
+  .lineup-page .box-score-card {
+    display: none;
+  }
+
+  .lineup-page .active-tool {
+    display: grid;
+  }
+
+  .lineup-save-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lineup-save-row > div {
+    justify-content: stretch;
+  }
+
+  .lineup-save-row button {
+    flex: 1;
+  }
+
+  .active-inning-card {
+    max-width: none;
   }
 
   .sponsor-apply-trigger {

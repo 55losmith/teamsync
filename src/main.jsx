@@ -1425,6 +1425,7 @@ function LineupPage({ data, onPage, team }) {
   const [defense, setDefense] = useState({})
   const [savedLineupAt, setSavedLineupAt] = useState('')
   const [boxScore, setBoxScore] = useState({})
+  const [activeTool, setActiveTool] = useState('defense')
   const lineupStorageKey = selectedGame ? `teamsync:lineup:${selectedGame.id}` : ''
 
   useEffect(() => {
@@ -1488,33 +1489,75 @@ function LineupPage({ data, onPage, team }) {
     player,
     position: defense[`${activeInning}:${player.id}`] || '',
   }))
+  const filledPositions = activeInningDefense.filter((row) => row.position)
+  const pitcherAssignment = activeInningDefense.find((row) => row.position === 'P')
+  const catcherAssignment = activeInningDefense.find((row) => row.position === 'C')
+  const currentBatter = orderedPlayers[0]
+  const onDeck = orderedPlayers[1]
+  const inHole = orderedPlayers[2]
+  const gameDayTabs = [
+    ['order', 'Batting Order'],
+    ['defense', `Inning ${activeInning}`],
+    ['stats', 'Box Score'],
+  ]
 
   return (
     <div className="page-stack lineup-page">
-      <PageHeader title="Lineup Lab" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
+      <PageHeader title="Game Day" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Build batting order and inning-by-inning defense'} action={selectedGame && 'Open Schedule'} onAction={() => onPage('schedule')} />
       {!selectedGame && <EmptyState title="No games yet" body="Add games to the schedule first, then build each lineup from here." action="Add Schedule" onAction={() => onPage('schedule')} />}
       {selectedGame && (
-        <section className="lineup-day-grid">
-          <article className="panel lineup-control-card">
-            <label>Game
+        <section className="game-day-command">
+          <div className="game-day-main">
+            <label>Scheduled Game
               <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
                 {games.map((game) => <option key={game.id} value={game.id}>{game.title} · {formatDate(game.starts_at)}</option>)}
               </select>
             </label>
-            <div className="lineup-save-row">
-              <small>{savedLineupAt ? `Saved ${formatDate(savedLineupAt)}` : 'Select the scheduled game, then save the plan as it changes.'}</small>
-              <button className="soft-button" type="button" onClick={saveLineup}>Save Day Plan</button>
+            <div className="game-day-meta">
+              <span>{selectedGame.opponent ? `vs. ${selectedGame.opponent}` : 'Opponent TBD'}</span>
+              <span>{selectedGame.location || selectedGame.event_address || 'Location TBD'}</span>
+              <span>{savedLineupAt ? `Saved ${formatDate(savedLineupAt)}` : 'Not Saved Yet'}</span>
             </div>
+          </div>
+          <div className="game-day-actions">
+            <button className="soft-button" type="button" onClick={saveLineup}>Save Plan</button>
+            <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
+          </div>
+        </section>
+      )}
+      {selectedGame && (
+        <section className="game-day-overview">
+          <article>
+            <span>Current Inning</span>
+            <strong>{activeInning}</strong>
+            <p>{filledPositions.length} of {orderedPlayers.length} assigned</p>
           </article>
-          <article className="panel lineup-intel-card">
+          <article>
+            <span>Battery</span>
+            <strong>{pitcherAssignment?.player.player_name || 'No Pitcher'}</strong>
+            <p>{catcherAssignment?.player.player_name ? `C: ${catcherAssignment.player.player_name}` : 'No catcher set'}</p>
+          </article>
+          <article className={availability.resting.length ? 'warning' : ''}>
             <span>Pitch Plan</span>
-            <strong>{availability.eligible.length} Ready · {availability.resting.length} Resting</strong>
-            <p>{availability.resting.length ? `${availability.resting.map((row) => row.player.player_name).join(', ')} should not pitch today.` : 'All tagged pitchers are eligible based on current logs.'}</p>
+            <strong>{availability.eligible.length} Ready</strong>
+            <p>{availability.resting.length ? `${availability.resting.length} resting` : 'No rest conflicts'}</p>
+          </article>
+          <article>
+            <span>First Three</span>
+            <strong>{currentBatter?.player_name || 'Set Order'}</strong>
+            <p>{[onDeck?.player_name, inHole?.player_name].filter(Boolean).join(' · ') || 'Add players'}</p>
           </article>
         </section>
       )}
+      {selectedGame && (
+        <nav className="game-day-tabs" aria-label="Game day tools">
+          {gameDayTabs.map(([key, label]) => (
+            <button className={activeTool === key ? 'active' : ''} key={key} type="button" onClick={() => setActiveTool(key)}>{label}</button>
+          ))}
+        </nav>
+      )}
       <section className="lineup-grid">
-        <article className="panel batting-card">
+        <article className={`panel batting-card ${activeTool === 'order' ? 'active-tool' : ''}`}>
           <SectionBar title="Batting Order" count={orderedPlayers.length} />
           <div className="batting-list">
             {orderedPlayers.map((player, index) => (
@@ -1533,8 +1576,8 @@ function LineupPage({ data, onPage, team }) {
             ))}
           </div>
         </article>
-        <article className="panel defense-card">
-          <SectionBar title={`Defense · Inning ${activeInning}`} count={activeInningDefense.filter((row) => row.position).length} />
+        <article className={`panel defense-card ${activeTool === 'defense' ? 'active-tool' : ''}`}>
+          <SectionBar title={`Defense · Inning ${activeInning}`} count={filledPositions.length} />
           <div className="inning-switcher" role="group" aria-label="Choose inning">
             {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
               <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>Inning {inning}</button>
@@ -1560,7 +1603,7 @@ function LineupPage({ data, onPage, team }) {
           </div>
         </article>
       </section>
-      <section className="panel box-score-card">
+      <section className={`panel box-score-card ${activeTool === 'stats' ? 'active-tool' : ''}`}>
         <SectionBar title="Simple Box Score" count={orderedPlayers.length} />
         <BoxScoreEditor boxScore={boxScore} onBoxScore={setBoxScore} onStat={updateStat} players={orderedPlayers} />
         <div className="lineup-save-row">
