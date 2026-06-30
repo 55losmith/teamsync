@@ -2522,7 +2522,12 @@ p {
   padding: 0 12px;
 }
 
-.event-actions button:last-child {
+.event-actions .primary-action {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.event-actions button:last-child:not(.primary-action) {
   background: var(--primary-soft);
   color: var(--primary);
 }
@@ -4304,7 +4309,25 @@ p {
   }
 
   .event-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin-top: 12px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .event-actions::-webkit-scrollbar {
     display: none;
+  }
+
+  .event-actions button {
+    min-height: 32px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    font-size: 0.78rem;
+    padding: 0 10px;
   }
 
   .defense-board {

@@ -1079,6 +1079,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
   const [scoreForms, setScoreForms] = useState({})
   const [statsEventId, setStatsEventId] = useState('')
   const [scheduleBoxScore, setScheduleBoxScore] = useState({})
+  const statsPanelRef = useRef(null)
   const now = new Date()
   const events = data.events.filter((event) => tab === 'upcoming' ? new Date(event.starts_at) >= now : new Date(event.starts_at) < now)
   const statsEvent = data.events.find((event) => event.id === statsEventId)
@@ -1087,6 +1088,10 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
     if (!statsEventId) return
     setScheduleBoxScore(getBoxScoreForEvent(data, statsEventId))
   }, [statsEventId, data])
+
+  useEffect(() => {
+    if (statsEventId) statsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [statsEventId])
 
   async function submit(event) {
     event.preventDefault()
@@ -1277,7 +1282,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
         {!events.length && <EmptyState title={`No ${tab} events`} body={tab === 'upcoming' ? 'Add games, practices, tournaments, and meetings for the season.' : 'Past games will show here once their date has passed.'} />}
       </div>
       {editable && statsEvent && (
-        <section className="panel box-score-card">
+        <section className="panel box-score-card" ref={statsPanelRef}>
           <SectionBar title={`Box Score · ${statsEvent.title}`} action="Close" onAction={() => setStatsEventId('')} />
           <BoxScoreEditor boxScore={scheduleBoxScore} onBoxScore={setScheduleBoxScore} players={data.roster} />
           <div className="lineup-save-row">
@@ -3151,6 +3156,9 @@ function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onSco
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
+  const isGame = event.event_type === 'game'
+  const isPast = new Date(event.starts_at) < new Date()
+  const primaryGameAction = isPast ? 'Box Score' : 'Game Day'
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
@@ -3164,8 +3172,8 @@ function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onSco
         {hasScore && <p className={`score-line ${event.result || ''}`}><span aria-hidden="true">♕</span>{event.our_score} - {event.opponent_score}</p>}
         {editable && (
           <div className="event-actions">
-            {event.event_type === 'game' && <button type="button" onClick={onLineup}>Game Day</button>}
-            {event.event_type === 'game' && <button type="button" onClick={onStats}>Box Score</button>}
+            {isGame && <button className="primary-action" type="button" onClick={isPast ? onStats : onLineup}>{primaryGameAction}</button>}
+            {isGame && <button type="button" onClick={isPast ? onLineup : onStats}>{isPast ? 'Lineup Used' : 'Box Score'}</button>}
             <button type="button" onClick={onEdit}>Edit</button>
             {!isCancelled && <button type="button" onClick={onCancel}>Cancel Event</button>}
           </div>
