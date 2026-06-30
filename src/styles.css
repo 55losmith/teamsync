@@ -141,12 +141,9 @@ p {
 .brand-mark {
   width: 36px;
   height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #dc2626, var(--primary));
-  color: #ffffff;
-  font-size: 1.05rem;
+  display: block;
+  border-radius: 11px;
+  object-fit: contain;
   box-shadow: 0 10px 24px rgba(165, 22, 29, 0.28);
 }
 

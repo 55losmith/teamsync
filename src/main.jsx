@@ -238,7 +238,7 @@ function App() {
   }
 
   if (!supabase) return <PublicShell><MissingEnv /></PublicShell>
-  if (loading) return <PublicShell><p className="muted">Loading TeamSync...</p></PublicShell>
+  if (loading) return <PublicShell><p className="muted">Loading HuddleUp...</p></PublicShell>
   if (!session) return <AuthScreen />
   if (!profile) return <PublicShell>{message ? <div className="notice">{message}</div> : <p className="muted">Loading your account...</p>}</PublicShell>
 
@@ -278,7 +278,7 @@ function PublicShell({ children, profile, onSignOut }) {
   return (
     <div className="public-app">
       <header className="public-topbar">
-        <Brand team={{ name: 'TeamSync', age_group: '9U Travel', location: 'Baseball' }} />
+        <Brand team={{ name: 'HuddleUp', age_group: '9U Travel', location: 'Baseball' }} />
         <div className="public-actions">
           <InstallAppButton />
           {profile && <button type="button" onClick={onSignOut}>Sign out</button>}
@@ -447,7 +447,7 @@ function navByKeys(keys) {
 function Brand({ team }) {
   return (
     <div className="brand">
-      <span className="brand-mark">🏆</span>
+      <img className="brand-mark" src="/icons/huddleup-icon.svg" alt="" aria-hidden="true" />
       <div>
         <strong>{team?.name || 'Lone Star Rangers'}</strong>
         <p>{team?.age_group || '9U Travel'} · {team?.location || 'Texas'}</p>
@@ -923,8 +923,8 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
       email: player.parent_email || '',
       link: inviteLink,
       playerName: player.player_name,
-      subject: `Join ${team.name} on TeamSync`,
-      text: `Hi,\n\nPlease join ${team.name} on TeamSync and claim ${player.player_name}.\n\n${inviteLink}\n\nTeam code: ${team.join_code}\n\nAfter signup, TeamSync will connect you to ${player.player_name}'s schedule, messages, and dues.`,
+      subject: `Join ${team.name} on HuddleUp`,
+      text: `Hi,\n\nPlease join ${team.name} on HuddleUp and claim ${player.player_name}.\n\n${inviteLink}\n\nTeam code: ${team.join_code}\n\nAfter signup, HuddleUp will connect you to ${player.player_name}'s schedule, messages, and dues.`,
     })
     setCopyStatus('')
   }
@@ -2436,7 +2436,7 @@ function AccountPage({ data, fullData, onRefresh, profile, setMessage, team }) {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Account" subtitle="Your TeamSync login and profile" />
+      <PageHeader title="Account" subtitle="Your HuddleUp login and profile" />
       {isParent && (
         <>
           <ParentClaimPanel claimedPlayers={claimedPlayers} onRefresh={onRefresh} players={claimablePlayers} profile={profile} setMessage={setMessage} />
@@ -2661,7 +2661,7 @@ function PushNotificationsPanel({ onRefresh, profile, setMessage, team }) {
         <button className="ghost" disabled={saving || checking || !pushSupported} type="button" onClick={disablePush}>Reset Device</button>
         <button className="ghost" disabled={saving || checking || permission !== 'granted' || !deviceEnabled} type="button" onClick={testPush}>Test Push</button>
       </div>
-      <small>{pushSupported ? `Browser permission: ${permission} · TeamSync device: ${checking ? 'checking' : deviceEnabled ? 'enabled' : 'not enabled'}` : 'This browser does not support web push.'}</small>
+      <small>{pushSupported ? `Browser permission: ${permission} · HuddleUp device: ${checking ? 'checking' : deviceEnabled ? 'enabled' : 'not enabled'}` : 'This browser does not support web push.'}</small>
     </section>
   )
 }
@@ -2678,7 +2678,7 @@ function SettingsPage({ data, onRefresh, setMessage, team }) {
   })
   const [copyStatus, setCopyStatus] = useState('')
   const inviteLink = `${window.location.origin}/?role=coach&teamCode=${team?.join_code || ''}`
-  const inviteMessage = `Join ${team?.name || 'our team'} on TeamSync as a coach: ${inviteLink}\nTeam code: ${team?.join_code || ''}`
+  const inviteMessage = `Join ${team?.name || 'our team'} on HuddleUp as a coach: ${inviteLink}\nTeam code: ${team?.join_code || ''}`
 
   async function submit(event) {
     event.preventDefault()
@@ -2884,10 +2884,10 @@ function ParentClaimPanel({ claimedPlayers, onRefresh, players, profile, setMess
 function FollowerInvitePanel({ claimedPlayers, team }) {
   const [email, setEmail] = useState('')
   const inviteLink = `${window.location.origin}/?role=follower&teamCode=${team?.join_code || ''}`
-  const body = `Follow ${team?.name || 'our team'} on TeamSync for schedules and team broadcasts.\n\n${inviteLink}\n\nTeam code: ${team?.join_code || ''}\nPlayers: ${claimedPlayers.map((player) => player.player_name).join(', ')}`
+  const body = `Follow ${team?.name || 'our team'} on HuddleUp for schedules and team broadcasts.\n\n${inviteLink}\n\nTeam code: ${team?.join_code || ''}\nPlayers: ${claimedPlayers.map((player) => player.player_name).join(', ')}`
 
   function sendInvite() {
-    window.location.assign(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Follow ${team?.name || 'our team'} on TeamSync`)}&body=${encodeURIComponent(body)}`)
+    window.location.assign(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Follow ${team?.name || 'our team'} on HuddleUp`)}&body=${encodeURIComponent(body)}`)
   }
 
   return (

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">HuddleUp</title>
+  <desc id="desc">Three teammates huddling around a star.</desc>
+  <rect width="512" height="512" rx="112" fill="#101827"/>
+  <circle cx="256" cy="256" r="188" fill="#ffffff" opacity=".06"/>
+  <circle cx="256" cy="256" r="148" fill="none" stroke="#ffffff" stroke-width="12" opacity=".22"/>
+  <g fill="#cf2632">
+    <circle cx="256" cy="126" r="42"/>
+    <path d="M188 210c16-38 45-58 68-58s52 20 68 58l-43 31c-9-25-17-35-25-35s-16 10-25 35l-43-31Z"/>
+    <circle cx="135" cy="332" r="42"/>
+    <path d="M204 305c-39-8-71 3-85 21s-14 54 8 88l49-20c-16-22-18-34-13-40s17-5 43 4l-2-53Z"/>
+    <circle cx="377" cy="332" r="42"/>
+    <path d="M308 305c39-8 71 3 85 21s14 54-8 88l-49-20c16-22 18-34 13-40s-17-5-43 4l2-53Z"/>
+  </g>
+  <path fill="#ffffff" d="m256 214 18 37 41 6-30 29 7 41-36-19-36 19 7-41-30-29 41-6 18-37Z"/>
+  <circle cx="256" cy="256" r="78" fill="none" stroke="#cf2632" stroke-width="10" opacity=".45"/>
+</svg>

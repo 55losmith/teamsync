@@ -1,5 +1,5 @@
-const CACHE_NAME = 'teamsync-app-v1'
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/teamsync-icon.svg']
+const CACHE_NAME = 'huddleup-app-v1'
+const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/huddleup-icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -39,13 +39,13 @@ self.addEventListener('push', (event) => {
     payload = { body: event.data?.text() }
   }
 
-  const title = payload.title || 'TeamSync'
+  const title = payload.title || 'HuddleUp'
   const options = {
-    badge: '/icons/teamsync-icon.svg',
-    body: payload.body || 'You have a new TeamSync update.',
+    badge: '/icons/huddleup-icon.svg',
+    body: payload.body || 'You have a new HuddleUp update.',
     data: { url: payload.url || '/' },
-    icon: '/icons/teamsync-icon.svg',
-    tag: payload.tag || 'teamsync-update',
+    icon: '/icons/huddleup-icon.svg',
+    tag: payload.tag || 'huddleup-update',
   }
 
   event.waitUntil(self.registration.showNotification(title, options))

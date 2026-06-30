@@ -130,7 +130,7 @@ export default async function handler(request, response) {
     .maybeSingle()
 
   if (profileError || !profile?.team_id || profile.team_id !== teamId) {
-    return response.status(403).json({ error: 'You can only send TeamSync pushes for your team.' })
+    return response.status(403).json({ error: 'You can only send HuddleUp pushes for your team.' })
   }
 
   if (testSelf) {
@@ -141,7 +141,7 @@ export default async function handler(request, response) {
         notification_type: 'test',
         recipient_id: profile.id,
         team_id: teamId,
-        title: 'TeamSync Test Push',
+        title: 'HuddleUp Test Push',
       })
       .select('id')
       .maybeSingle()

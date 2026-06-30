@@ -1,4 +1,4 @@
-# TeamSync
+# HuddleUp
 
 A simple Vite React + Supabase app for youth team coordination.
 

@@ -1,6 +1,6 @@
 {
-  "name": "TeamSync",
-  "short_name": "TeamSync",
+  "name": "HuddleUp",
+  "short_name": "HuddleUp",
   "description": "Travel baseball team operations for coaches and families.",
   "start_url": "/",
   "scope": "/",
@@ -10,7 +10,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/teamsync-icon.svg",
+      "src": "/icons/huddleup-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
