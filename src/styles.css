@@ -3077,9 +3077,9 @@ p {
 
 .game-day-command {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
   gap: 16px;
-  align-items: end;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
@@ -3091,6 +3091,10 @@ p {
   display: grid;
   gap: 10px;
   min-width: 0;
+}
+
+.game-day-main select {
+  max-width: 100%;
 }
 
 .game-mode-pill {
@@ -3140,6 +3144,13 @@ p {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.game-day-actions .quiet-button {
+  min-height: 34px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  padding: 0 11px;
 }
 
 .game-day-actions button,
@@ -3954,32 +3965,21 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
 }
 
 .lineup-planner-toolbar .inning-switcher {
   flex: 1;
 }
 
-.desktop-lineup-matrix {
-  box-shadow: none;
-}
-
-.desktop-lineup-matrix .game-mode-matrix-row {
-  grid-template-columns: 96px repeat(6, minmax(0, 1fr));
-}
-
-.desktop-lineup-matrix .game-mode-matrix-row > span,
-.desktop-lineup-matrix .game-mode-matrix-row > strong {
-  padding: 10px;
-}
-
 .print-lineup-sheet.visible-sheet {
   display: block;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--foreground);
-  padding: 14px;
+  padding: 0;
 }
 
 .print-lineup-sheet.visible-sheet header {
@@ -4585,15 +4585,6 @@ p {
     align-items: stretch;
     grid-template-columns: 1fr;
     flex-direction: column;
-  }
-
-  .desktop-lineup-matrix .game-mode-matrix-row {
-    grid-template-columns: 44px repeat(6, minmax(0, 1fr));
-  }
-
-  .desktop-lineup-matrix .game-mode-matrix-row > span,
-  .desktop-lineup-matrix .game-mode-matrix-row > strong {
-    padding: 5px 3px;
   }
 
   .print-lineup-sheet.visible-sheet .print-defense-row {
