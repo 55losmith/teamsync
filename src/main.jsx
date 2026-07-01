@@ -387,14 +387,14 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
   const actionCounts = getActionCounts(visibleData)
-  const parentNavKeys = ['dashboard', 'schedule', 'lineup', 'messages', 'dues', 'account']
+  const parentNavKeys = ['dashboard', 'schedule', 'messages', 'dues', 'account']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
   const followerNavKeys = ['dashboard', 'schedule', 'messages', 'account']
   const visibleNav = isCoach
     ? navItems
     : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
   const unreadNotifications = visibleData.notifications.filter((notification) => !notification.read_at).length
-  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'lineup', 'messages']
+  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'dues']
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
   const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
@@ -525,6 +525,7 @@ function MainPage(props) {
   const isCoach = props.profile.role === 'coach'
   const pageData = isCoach ? props.data : props.profile.role === 'follower' ? getFollowerScopedData(props.data) : getParentScopedData(props.data, props.profile)
   const pageProps = { ...props, data: pageData, fullData: props.data }
+  const safeActivePage = !isCoach && props.activePage === 'lineup' ? 'schedule' : props.activePage
   const pages = {
     dashboard: <DashboardPage {...pageProps} />,
     lineup: <LineupPage {...pageProps} readOnly={!isCoach} />,
@@ -536,7 +537,7 @@ function MainPage(props) {
     account: <AccountPage {...pageProps} />,
     settings: isCoach ? <SettingsPage {...pageProps} /> : null,
   }
-  return pages[props.activePage] || pages.dashboard
+  return pages[safeActivePage] || pages.dashboard
 }
 
 function MissingEnv() {
@@ -1102,6 +1103,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
   const [scoreForms, setScoreForms] = useState({})
   const [statsEventId, setStatsEventId] = useState('')
   const [scheduleBoxScore, setScheduleBoxScore] = useState({})
+  const [expandedLineupId, setExpandedLineupId] = useState('')
   const statsPanelRef = useRef(null)
   const now = new Date()
   const events = data.events.filter((event) => tab === 'upcoming' ? new Date(event.starts_at) >= now : new Date(event.starts_at) < now)
@@ -1293,15 +1295,19 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
           <EventCard
             editable={editable}
             event={event}
+            lineupPlan={data.lineupPlans.find((plan) => plan.event_id === event.id)}
             key={event.id}
             onCancel={() => cancelEvent(event)}
             onEdit={() => startEdit(event)}
+            onLineupToggle={() => setExpandedLineupId(expandedLineupId === event.id ? '' : event.id)}
             onLineup={() => buildLineup(event)}
             onStats={() => setStatsEventId(event.id)}
+            players={data.roster}
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
             scoreForm={scoreForms[event.id] || { our_score: event.our_score ?? '', opponent_score: event.opponent_score ?? '' }}
             scoreEditable={editable && tab === 'past' && event.event_type === 'game'}
+            showLineup={expandedLineupId === event.id}
           />
         ))}
         {!events.length && <EmptyState title={`No ${tab} events`} body={tab === 'upcoming' ? 'Add games, practices, tournaments, and meetings for the season.' : 'Past games will show here once their date has passed.'} />}
@@ -3585,13 +3591,16 @@ function PositionPicker({ onChange, value }) {
   )
 }
 
-function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onScoreChange, onScoreSave, scoreEditable, scoreForm }) {
+function EventCard({ editable, event, lineupPlan, onCancel, onEdit, onLineup, onLineupToggle, onStats, onScoreChange, onScoreSave, players = [], scoreEditable, scoreForm, showLineup }) {
   const date = new Date(event.starts_at)
   const hasScore = event.our_score !== null && event.our_score !== '' && event.opponent_score !== null && event.opponent_score !== ''
   const isCancelled = event.status === 'cancelled'
   const isGame = event.event_type === 'game'
   const isPast = new Date(event.starts_at) < new Date()
   const primaryGameAction = isPast ? 'Box Score' : 'Lineup'
+  const battingOrderIds = Array.isArray(lineupPlan?.batting_order) ? lineupPlan.batting_order : []
+  const orderedPlayers = battingOrderIds.map((id) => players.find((player) => player.id === id)).filter(Boolean)
+  const canViewBattingOrder = isGame && orderedPlayers.length > 0
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
@@ -3607,8 +3616,30 @@ function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onSco
           <div className="event-actions">
             {isGame && <button className="primary-action" type="button" onClick={isPast ? onStats : onLineup}>{primaryGameAction}</button>}
             {isGame && <button type="button" onClick={isPast ? onLineup : onStats}>{isPast ? 'Lineup Used' : 'Box Score'}</button>}
+            {canViewBattingOrder && <button type="button" onClick={onLineupToggle}>{showLineup ? 'Hide Batting Order' : 'View Batting Order'}</button>}
             <button type="button" onClick={onEdit}>Edit</button>
             {!isCancelled && <button type="button" onClick={onCancel}>Cancel Event</button>}
+          </div>
+        )}
+        {!editable && canViewBattingOrder && (
+          <div className="event-actions">
+            <button className="primary-action" type="button" onClick={onLineupToggle}>{showLineup ? 'Hide Batting Order' : 'View Batting Order'}</button>
+          </div>
+        )}
+        {showLineup && canViewBattingOrder && (
+          <div className="schedule-batting-order">
+            <div>
+              <strong>Batting Order</strong>
+              <span>{lineupPlan?.defense_plan?.__settings?.continuousBatting ? 'Continuous' : `${orderedPlayers.length} Players`}</span>
+            </div>
+            <ol>
+              {orderedPlayers.map((player, index) => (
+                <li key={player.id}>
+                  <span>{index + 1}</span>
+                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                </li>
+              ))}
+            </ol>
           </div>
         )}
         {scoreEditable && !isCancelled && (
