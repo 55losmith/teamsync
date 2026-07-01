@@ -1095,7 +1095,7 @@ function RosterPage({ data, editable, fullData, onRefresh, profile, setMessage, 
   )
 }
 
-function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
+function SchedulePage({ data, editable, fullData, onPage, onRefresh, setMessage, team }) {
   const [tab, setTab] = useState('upcoming')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForms.event)
@@ -1108,6 +1108,8 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
   const now = new Date()
   const events = data.events.filter((event) => tab === 'upcoming' ? new Date(event.starts_at) >= now : new Date(event.starts_at) < now)
   const statsEvent = data.events.find((event) => event.id === statsEventId)
+  const lineupPlans = fullData?.lineupPlans || data.lineupPlans
+  const lineupPlayers = fullData?.roster || data.roster
 
   useEffect(() => {
     if (!statsEventId) return
@@ -1295,14 +1297,14 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
           <EventCard
             editable={editable}
             event={event}
-            lineupPlan={data.lineupPlans.find((plan) => plan.event_id === event.id)}
+            lineupPlan={lineupPlans.find((plan) => plan.event_id === event.id)}
             key={event.id}
             onCancel={() => cancelEvent(event)}
             onEdit={() => startEdit(event)}
             onLineupToggle={() => setExpandedLineupId(expandedLineupId === event.id ? '' : event.id)}
             onLineup={() => buildLineup(event)}
             onStats={() => setStatsEventId(event.id)}
-            players={data.roster}
+            players={lineupPlayers}
             onScoreChange={(scoreForm) => setScoreForms({ ...scoreForms, [event.id]: scoreForm })}
             onScoreSave={(scoreForm) => saveScore(event, scoreForm)}
             scoreForm={scoreForms[event.id] || { our_score: event.our_score ?? '', opponent_score: event.opponent_score ?? '' }}
