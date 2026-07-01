@@ -1957,7 +1957,7 @@ function FieldView({ assignments }) {
           <path className="field-dirt-arc" d="M22 62 Q50 30 78 62 L73 66 L50 44 L27 66 Z" />
           <path className="field-foul" d="M50 88 L3 35 M50 88 L97 35" />
           <circle className="field-mound" cx="50" cy="62" r="5" />
-          <rect className="field-base" x="48.4" y="42.4" width="3.2" height="3.2" transform="rotate(45 50 44)" />
+          <rect className="field-base" x="49" y="40.5" width="2" height="2" transform="rotate(45 50 41.5)" />
           <rect className="field-base" x="71.4" y="64.4" width="3.2" height="3.2" transform="rotate(45 73 66)" />
           <rect className="field-base" x="25.4" y="64.4" width="3.2" height="3.2" transform="rotate(45 27 66)" />
           <path className="field-plate" d="M48 87 L52 87 L52.8 89 L50 91 L47.2 89 Z" />

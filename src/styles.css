@@ -3621,8 +3621,13 @@ p {
 .field-base,
 .field-plate {
   fill: #ffffff;
-  stroke: rgba(15, 23, 42, 0.12);
-  stroke-width: 0.25;
+  opacity: 0.78;
+  stroke: rgba(15, 23, 42, 0.08);
+  stroke-width: 0.18;
+}
+
+.field-plate {
+  opacity: 0.95;
 }
 
 .field-alignment-label {
