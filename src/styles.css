@@ -3589,6 +3589,7 @@ p {
 .field-diamond::before {
   content: "";
   position: absolute;
+  z-index: 0;
   left: 50%;
   top: 56%;
   width: 210px;
@@ -3615,7 +3616,7 @@ p {
 
 .field-position {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   width: min(140px, 28vw);
   min-height: 54px;
   display: grid;
@@ -5727,13 +5728,14 @@ p {
   }
 
   .field-diamond {
-    min-height: 420px;
+    min-height: 410px;
     border-radius: 14px;
   }
 
   .field-diamond::before {
-    width: 145px;
-    height: 145px;
+    top: 58%;
+    width: 132px;
+    height: 132px;
   }
 
   .field-alignment-label {
@@ -5744,19 +5746,31 @@ p {
   }
 
   .field-position {
-    width: min(96px, 25vw);
-    min-height: 46px;
-    border-radius: 12px;
-    padding: 6px;
+    width: clamp(72px, 22vw, 86px);
+    min-height: 42px;
+    border-radius: 11px;
+    padding: 5px 6px;
   }
 
   .field-position span {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
   }
 
   .field-position strong {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
   }
+
+  .field-lf { left: 16%; top: 22%; }
+  .field-lcf { left: 36%; top: 14%; }
+  .field-cf { left: 50%; top: 12%; }
+  .field-rcf { left: 64%; top: 14%; }
+  .field-rf { left: 84%; top: 22%; }
+  .field-2b { left: 55%; top: 45%; }
+  .field-ss { left: 36%; top: 52%; }
+  .field-p { left: 50%; top: 64%; }
+  .field-3b { left: 27%; top: 70%; }
+  .field-1b { left: 73%; top: 70%; }
+  .field-c { left: 50%; top: 87%; }
 
   .game-mode-innings {
     position: sticky;
