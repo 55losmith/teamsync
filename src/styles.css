@@ -3847,6 +3847,8 @@ p {
 
 .lineup-page .batting-card,
 .lineup-page .defense-card,
+.lineup-page .lineup-field-card,
+.lineup-page .lineup-full-card,
 .lineup-page .box-score-card {
   display: none;
 }
@@ -3940,6 +3942,126 @@ p {
 .box-score-card {
   display: grid;
   gap: 14px;
+}
+
+.lineup-field-card,
+.lineup-full-card {
+  gap: 14px;
+}
+
+.lineup-planner-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineup-planner-toolbar .inning-switcher {
+  flex: 1;
+}
+
+.desktop-lineup-matrix {
+  box-shadow: none;
+}
+
+.desktop-lineup-matrix .game-mode-matrix-row {
+  grid-template-columns: 96px repeat(6, minmax(0, 1fr));
+}
+
+.desktop-lineup-matrix .game-mode-matrix-row > span,
+.desktop-lineup-matrix .game-mode-matrix-row > strong {
+  padding: 10px;
+}
+
+.print-lineup-sheet.visible-sheet {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 14px;
+}
+
+.print-lineup-sheet.visible-sheet header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.print-lineup-sheet.visible-sheet h1,
+.print-lineup-sheet.visible-sheet h2,
+.print-lineup-sheet.visible-sheet p {
+  margin: 0;
+}
+
+.print-lineup-sheet.visible-sheet h1 {
+  font-size: 1.15rem;
+}
+
+.print-lineup-sheet.visible-sheet p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.print-lineup-sheet.visible-sheet .print-lineup-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.print-lineup-sheet.visible-sheet h2 {
+  margin-bottom: 8px;
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.print-lineup-sheet.visible-sheet ol {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.55;
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-row {
+  display: grid;
+  grid-template-columns: 76px repeat(6, minmax(0, 1fr));
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-row + .print-defense-row {
+  border-top: 1px solid var(--border);
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-row > span,
+.print-lineup-sheet.visible-sheet .print-defense-row > strong {
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  font-size: 0.76rem;
+  padding: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-row > span:last-child {
+  border-right: 0;
+}
+
+.print-lineup-sheet.visible-sheet .print-defense-head,
+.print-lineup-sheet.visible-sheet .print-defense-row > strong {
+  background: #f8fafc;
 }
 
 .box-score-table {
@@ -4431,6 +4553,8 @@ p {
 
   .lineup-page .batting-card,
   .lineup-page .defense-card,
+  .lineup-page .lineup-field-card,
+  .lineup-page .lineup-full-card,
   .lineup-page .box-score-card {
     display: none;
   }
@@ -4454,6 +4578,32 @@ p {
 
   .active-inning-card {
     max-width: none;
+  }
+
+  .lineup-planner-toolbar,
+  .print-lineup-sheet.visible-sheet .print-lineup-grid {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .desktop-lineup-matrix .game-mode-matrix-row {
+    grid-template-columns: 44px repeat(6, minmax(0, 1fr));
+  }
+
+  .desktop-lineup-matrix .game-mode-matrix-row > span,
+  .desktop-lineup-matrix .game-mode-matrix-row > strong {
+    padding: 5px 3px;
+  }
+
+  .print-lineup-sheet.visible-sheet .print-defense-row {
+    grid-template-columns: 46px repeat(6, minmax(0, 1fr));
+  }
+
+  .print-lineup-sheet.visible-sheet .print-defense-row > span,
+  .print-lineup-sheet.visible-sheet .print-defense-row > strong {
+    font-size: 0.58rem;
+    padding: 4px 2px;
   }
 
   .sponsor-apply-trigger {

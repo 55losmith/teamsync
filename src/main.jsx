@@ -1788,6 +1788,8 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
   const gameDayTabs = [
     ['order', 'Batting Order'],
     ['defense', `Inning ${activeInning}`],
+    ['field', 'Field View'],
+    ['full', 'Full Game'],
     ['stats', 'Box Score'],
   ]
 
@@ -1813,6 +1815,8 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
           <div className="game-day-actions">
             <button className="soft-button" type="button" onClick={() => setActiveTool('order')}>Batting</button>
             <button className="soft-button" type="button" onClick={() => setActiveTool('defense')}>Defense</button>
+            <button className="soft-button" type="button" onClick={() => setActiveTool('field')}>Field</button>
+            <button className="soft-button" type="button" onClick={() => setActiveTool('full')}>Full Game</button>
             <button className="soft-button" type="button" onClick={() => setActiveTool('stats')}>Box Score</button>
             <button className="soft-button" type="button" onClick={() => onPage('pitch')}>Pitch Counts</button>
             <button className="soft-button" type="button" onClick={() => onPage('messages')}>Broadcast</button>
@@ -1901,6 +1905,42 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
           </div>
         </article>
       </section>
+      <section className={`panel lineup-field-card ${activeTool === 'field' ? 'active-tool' : ''}`}>
+        <SectionBar title={`Field View · Inning ${activeInning}`} count={filledPositions.length} />
+        <div className="lineup-planner-toolbar">
+          <div className="inning-switcher" role="group" aria-label="Choose field view inning">
+            {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
+              <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>Inning {inning}</button>
+            ))}
+          </div>
+          <button className="soft-button" type="button" onClick={() => setActiveTool('defense')}>Edit Assignments</button>
+        </div>
+        <FieldView assignments={defensiveField} />
+      </section>
+      <section className={`panel lineup-full-card ${activeTool === 'full' ? 'active-tool' : ''}`}>
+        <SectionBar title="Full Game View" count={inningCount} />
+        <div className="lineup-planner-toolbar">
+          <p className="muted">Position-by-inning view for quick coach review, printing, and spotting balance issues.</p>
+          <button className="soft-button" type="button" onClick={() => window.print()}>Print Lineup</button>
+        </div>
+        <LineupPrintSheet event={selectedGame} fullGameRows={fullGameRows} inningCount={inningCount} orderedPlayers={orderedPlayers} playerShortName={playerShortName} team={team} visible />
+        <div className="game-mode-matrix desktop-lineup-matrix" role="table" aria-label="Full game defensive assignments">
+          <div className="game-mode-matrix-row game-mode-matrix-head" role="row">
+            <span>Pos</span>
+            {Array.from({ length: inningCount }, (_, index) => <span key={index}>Inning {index + 1}</span>)}
+          </div>
+          {fullGameRows.map((row) => (
+            <div className="game-mode-matrix-row" key={row.position} role="row">
+              <strong>{row.position}</strong>
+              {row.innings.map((players, index) => (
+                <span className="game-mode-matrix-cell" key={`${row.position}:desktop:${index}`}>
+                  {players.length ? players.map(playerShortName).join(', ') : '-'}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
       <section className={`panel box-score-card ${activeTool === 'stats' ? 'active-tool' : ''}`}>
         <SectionBar title="Simple Box Score" count={orderedPlayers.length} />
         <BoxScoreEditor boxScore={boxScore} onBoxScore={setBoxScore} onStat={updateStat} players={orderedPlayers} />
@@ -1952,9 +1992,9 @@ function FieldView({ assignments }) {
   )
 }
 
-function LineupPrintSheet({ event, fullGameRows, inningCount, orderedPlayers, playerShortName, team }) {
+function LineupPrintSheet({ event, fullGameRows, inningCount, orderedPlayers, playerShortName, team, visible = false }) {
   return (
-    <section className="print-lineup-sheet" aria-hidden="true">
+    <section className={`print-lineup-sheet ${visible ? 'visible-sheet' : ''}`} aria-hidden={!visible}>
       <header>
         <div>
           <h1>{team?.name || 'HuddleUp'} Lineup</h1>
