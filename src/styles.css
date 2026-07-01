@@ -3575,33 +3575,54 @@ p {
 }
 
 .field-diamond {
-  min-height: 520px;
+  aspect-ratio: 1.35 / 1;
+  min-height: 500px;
   position: relative;
-  display: grid;
-  grid-template-rows: 1.1fr 0.9fr 1fr 0.75fr;
-  gap: 16px;
-  align-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background:
-    radial-gradient(circle at 50% 72%, rgba(210, 153, 36, 0.24) 0 15%, transparent 16%),
-    radial-gradient(circle at 50% 64%, rgba(34, 197, 94, 0.18) 0 42%, rgba(34, 197, 94, 0.1) 43% 58%, transparent 59%),
-    linear-gradient(180deg, #e0f2fe, #ecfdf5 48%, #fef3c7);
-  padding: 58px 28px 22px;
+  background: #e8f7f3;
 }
 
-.field-diamond::before {
-  content: "";
+.field-art {
   position: absolute;
+  inset: 0;
   z-index: 0;
-  left: 50%;
-  top: 56%;
-  width: 210px;
-  height: 210px;
-  border: 2px solid rgba(146, 64, 14, 0.4);
-  background: rgba(254, 243, 199, 0.78);
-  transform: translate(-50%, -10%) rotate(45deg);
+  width: 100%;
+  height: 100%;
+}
+
+.field-grass {
+  fill: #2f8f46;
+}
+
+.field-infield,
+.field-dirt-arc {
+  fill: #d5b07a;
+}
+
+.field-dirt-arc {
+  opacity: 0.86;
+}
+
+.field-foul {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-linecap: round;
+  stroke-width: 0.75;
+}
+
+.field-mound {
+  fill: #d5b07a;
+  stroke: rgba(255, 255, 255, 0.72);
+  stroke-width: 0.5;
+}
+
+.field-base,
+.field-plate {
+  fill: #ffffff;
+  stroke: rgba(15, 23, 42, 0.12);
+  stroke-width: 0.25;
 }
 
 .field-alignment-label {
@@ -3620,19 +3641,20 @@ p {
 }
 
 .field-position {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  width: min(128px, 100%);
-  min-height: 48px;
+  width: 116px;
+  min-height: 44px;
   display: grid;
   place-items: center;
   gap: 1px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
   padding: 6px;
   text-align: center;
+  transform: translate(-50%, -50%);
 }
 
 .field-position span {
@@ -3651,28 +3673,17 @@ p {
   white-space: nowrap;
 }
 
-.field-row {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.field-outfield {
-  align-items: flex-start;
-}
-
-.field-middle-infield {
-  justify-content: center;
-  gap: clamp(54px, 18vw, 160px);
-}
-
-.field-corners {
-  justify-content: center;
-  gap: clamp(24px, 10vw, 96px);
-}
+.field-lf { left: 17%; top: 30%; }
+.field-lcf { left: 35%; top: 20%; }
+.field-cf { left: 50%; top: 18%; }
+.field-rcf { left: 65%; top: 20%; }
+.field-rf { left: 83%; top: 30%; }
+.field-ss { left: 39%; top: 50%; }
+.field-2b { left: 61%; top: 50%; }
+.field-3b { left: 28%; top: 68%; }
+.field-p { left: 50%; top: 62%; }
+.field-1b { left: 72%; top: 68%; }
+.field-c { left: 50%; top: 88%; }
 
 .field-home-row {
   justify-content: center;
@@ -5748,23 +5759,9 @@ p {
   }
 
   .field-diamond {
+    aspect-ratio: auto;
     min-height: 390px;
-    grid-template-rows: 1fr 0.8fr 0.9fr 0.65fr;
-    gap: 12px;
     border-radius: 14px;
-    background:
-      radial-gradient(circle at 50% 78%, rgba(210, 153, 36, 0.22) 0 13%, transparent 14%),
-      radial-gradient(ellipse at 50% 44%, rgba(22, 163, 74, 0.28) 0 49%, transparent 50%),
-      linear-gradient(180deg, #dff4ff, #e8faee 54%, #fff4c8);
-    padding: 40px 8px 10px;
-  }
-
-  .field-diamond::before {
-    top: 60%;
-    width: 158px;
-    height: 158px;
-    border-width: 2px;
-    opacity: 0.72;
   }
 
   .field-alignment-label {
@@ -5775,45 +5772,35 @@ p {
   }
 
   .field-position {
-    width: min(72px, 100%);
-    min-height: 30px;
+    width: min(68px, 18vw);
+    min-height: 32px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.07);
-    padding: 3px 5px;
+    padding: 3px 4px;
   }
 
   .field-position span {
-    font-size: 0.5rem;
+    font-size: 0.48rem;
     line-height: 1;
   }
 
   .field-position strong {
-    font-size: 0.58rem;
+    font-size: 0.56rem;
     line-height: 1.05;
   }
 
-  .field-row {
-    gap: 6px;
-  }
-
-  .field-outfield {
-    justify-content: space-between;
-  }
-
-  .field-middle-infield {
-    justify-content: center;
-    gap: clamp(58px, 22vw, 92px);
-  }
-
-  .field-corners {
-    justify-content: center;
-    gap: clamp(10px, 4vw, 18px);
-  }
-
-  .field-corners .field-position {
-    width: min(66px, 100%);
-  }
+  .field-lf { left: 15%; top: 31%; }
+  .field-lcf { left: 34%; top: 22%; }
+  .field-cf { left: 50%; top: 17%; }
+  .field-rcf { left: 66%; top: 22%; }
+  .field-rf { left: 85%; top: 31%; }
+  .field-ss { left: 37%; top: 50%; }
+  .field-2b { left: 63%; top: 50%; }
+  .field-3b { left: 27%; top: 68%; }
+  .field-p { left: 50%; top: 62%; }
+  .field-1b { left: 73%; top: 68%; }
+  .field-c { left: 50%; top: 88%; }
 
   .game-mode-innings {
     position: sticky;

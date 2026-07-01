@@ -1932,35 +1932,43 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
 
 function FieldView({ assignments }) {
   const usesFourOutfielders = Boolean(assignments.LCF?.length || assignments.RCF?.length)
-  const outfield = usesFourOutfielders ? ['LF', 'LCF', 'RCF', 'RF'] : ['LF', 'CF', 'RF']
+  const positions = [
+    ['LF', 'field-lf'],
+    ...(usesFourOutfielders
+      ? [['LCF', 'field-lcf'], ['RCF', 'field-rcf']]
+      : [['CF', 'field-cf']]),
+    ['RF', 'field-rf'],
+    ['SS', 'field-ss'],
+    ['2B', 'field-2b'],
+    ['3B', 'field-3b'],
+    ['P', 'field-p'],
+    ['1B', 'field-1b'],
+    ['C', 'field-c'],
+  ]
   const hiddenOutfielders = usesFourOutfielders ? assignments.CF || [] : [...(assignments.LCF || []), ...(assignments.RCF || [])]
   const benchPlayers = [...(assignments.Bench || []), ...hiddenOutfielders]
-  const renderPosition = (position) => (
-    <div className={`field-position field-${position.toLowerCase()}`} key={position}>
-      <span>{position}</span>
-      <strong>{assignments[position]?.length ? assignments[position].map((player) => player.player_name.split(' ')[0]).join(', ') : 'Open'}</strong>
-    </div>
-  )
 
   return (
     <div className="field-view">
       <div className="field-diamond" aria-label="Defensive field view">
+        <svg className="field-art" viewBox="0 0 100 100" aria-hidden="true" preserveAspectRatio="none">
+          <path className="field-grass" d="M3 35 Q50 -4 97 35 L78 80 Q50 96 22 80 Z" />
+          <path className="field-infield" d="M27 66 L50 44 L73 66 L50 88 Z" />
+          <path className="field-dirt-arc" d="M22 62 Q50 30 78 62 L73 66 L50 44 L27 66 Z" />
+          <path className="field-foul" d="M50 88 L3 35 M50 88 L97 35" />
+          <circle className="field-mound" cx="50" cy="62" r="5" />
+          <rect className="field-base" x="48.4" y="42.4" width="3.2" height="3.2" transform="rotate(45 50 44)" />
+          <rect className="field-base" x="71.4" y="64.4" width="3.2" height="3.2" transform="rotate(45 73 66)" />
+          <rect className="field-base" x="25.4" y="64.4" width="3.2" height="3.2" transform="rotate(45 27 66)" />
+          <path className="field-plate" d="M48 87 L52 87 L52.8 89 L50 91 L47.2 89 Z" />
+        </svg>
         <span className="field-alignment-label">{usesFourOutfielders ? '4 Outfield' : '3 Outfield'}</span>
-        <div className={`field-row field-outfield ${usesFourOutfielders ? 'four-outfield' : ''}`}>
-          {outfield.map(renderPosition)}
-        </div>
-        <div className="field-row field-middle-infield">
-          {renderPosition('SS')}
-          {renderPosition('2B')}
-        </div>
-        <div className="field-row field-corners">
-          {renderPosition('3B')}
-          {renderPosition('P')}
-          {renderPosition('1B')}
-        </div>
-        <div className="field-row field-home-row">
-          {renderPosition('C')}
-        </div>
+        {positions.map(([position, className]) => (
+          <div className={`field-position ${className}`} key={position}>
+            <span>{position}</span>
+            <strong>{assignments[position]?.length ? assignments[position].map((player) => player.player_name.split(' ')[0]).join(', ') : 'Open'}</strong>
+          </div>
+        ))}
       </div>
       {benchPlayers.length > 0 && (
         <div className="field-bench">
