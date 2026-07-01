@@ -2729,8 +2729,8 @@ p {
 
 .schedule-batting-order ol {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2738,18 +2738,18 @@ p {
 
 .schedule-batting-order li {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   min-width: 0;
   border-radius: 10px;
   background: #ffffff;
-  padding: 8px;
+  padding: 7px 8px;
 }
 
 .schedule-batting-order li span {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -2761,11 +2761,10 @@ p {
 
 .schedule-batting-order li strong {
   min-width: 0;
-  overflow: hidden;
   color: var(--foreground);
   font-size: 0.92rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .date-block {
@@ -3500,6 +3499,27 @@ p {
 .continuous-toggle input {
   width: 18px;
   height: 18px;
+}
+
+.continuous-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.continuous-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.batting-row.last-batter-row,
+.game-mode-order-row.last-batter-row {
+  border-color: rgba(201, 41, 49, 0.35);
+  background: var(--primary-soft);
 }
 
 .game-mode-innings {

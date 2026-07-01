@@ -1490,14 +1490,18 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
   const [gameModeView, setGameModeView] = useState('inning')
   const [battingCollapsed, setBattingCollapsed] = useState(() => sessionStorage.getItem('huddleup:gameModeBattingCollapsed') === 'true')
   const [continuousBatting, setContinuousBatting] = useState(true)
+  const [lastCompletedBatterId, setLastCompletedBatterId] = useState('')
   const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
     if (!selectedGame) return
     sessionStorage.setItem('huddleup:selectedGameId', selectedGame.id)
-    setBattingOrder(Array.isArray(selectedPlan?.batting_order) && selectedPlan.batting_order.length ? selectedPlan.batting_order : data.roster.map((player) => player.id))
+    const defaultOrder = getDefaultBattingOrder(data, selectedGame, selectedPlan)
+    const settings = selectedPlan?.defense_plan?.__settings || {}
+    setBattingOrder(defaultOrder)
     setDefense(selectedPlan?.defense_plan || {})
-    setContinuousBatting(selectedPlan?.defense_plan?.__settings?.continuousBatting ?? true)
+    setContinuousBatting(settings.continuousBatting ?? true)
+    setLastCompletedBatterId(settings.lastCompletedBatterId || '')
     setBoxScore(getBoxScoreForEvent(data, selectedGame.id, selectedPlan))
     setSavedLineupAt(selectedPlan?.updated_at || '')
   }, [data, selectedGame, selectedPlan])
@@ -1525,7 +1529,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     const error = await saveGamePlan({
       battingOrder,
       boxScore,
-      defense: { ...defense, __settings: { continuousBatting } },
+      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId } },
       eventId: selectedGame.id,
       existingPlan: selectedPlan,
       roster: data.roster,
@@ -1574,6 +1578,11 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
       sessionStorage.setItem('huddleup:gameModeBattingCollapsed', String(!current))
       return !current
     })
+  }
+
+  function markLastBatter(playerId) {
+    setLastCompletedBatterId(playerId)
+    setMessage('Last batter marked. The next unsaved game can start with the following player.')
   }
 
   function playerShortName(player) {
@@ -1727,13 +1736,14 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
                 </div>
               </div>
               {!battingCollapsed && (
-                <div className="game-mode-order">
-                  {orderedPlayers.map((player, index) => (
-                    <div className="game-mode-order-row" key={player.id}>
+              <div className="game-mode-order">
+                {orderedPlayers.map((player, index) => (
+                    <div className={`game-mode-order-row ${lastCompletedBatterId === player.id ? 'last-batter-row' : ''}`} key={player.id}>
                       <span>{index + 1}</span>
                       <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
                       {restingIds.has(player.id) && <small>Pitch Rest</small>}
                       <div className="game-mode-row-actions">
+                        {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)} title="Mark last batter">✓</button>}
                         <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
                         <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
                       </div>
@@ -1864,12 +1874,13 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
           <SectionBar title="Batting Order" count={orderedPlayers.length} />
           <div className="batting-list">
             {orderedPlayers.map((player, index) => (
-              <div className="batting-row" key={player.id}>
+              <div className={`batting-row ${lastCompletedBatterId === player.id ? 'last-batter-row' : ''}`} key={player.id}>
                 <span>{index + 1}</span>
                 <div>
                   <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
-                  <p>{player.position || 'No positions tagged'}{restingIds.has(player.id) ? ' · Resting pitcher' : ''}</p>
+                  <p>{player.position || 'No positions tagged'}{restingIds.has(player.id) ? ' · Resting pitcher' : ''}{lastCompletedBatterId === player.id ? ' · Last batter' : ''}</p>
                 </div>
+                {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)}>Last</button>}
                 <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
                 <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
               </div>
@@ -1877,6 +1888,17 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
             {unlistedPlayers.map((player) => (
               <button className="soft-button" key={player.id} type="button" onClick={() => setBattingOrder([...battingOrder, player.id])}>Add {player.player_name}</button>
             ))}
+            <div className="continuous-panel">
+              <label className="continuous-toggle">
+                <input checked={continuousBatting} type="checkbox" onChange={(event) => setContinuousBatting(event.target.checked)} />
+                <span>Use Continuous Batting Order</span>
+              </label>
+              {continuousBatting && (
+                <p>
+                  Mark the last batter used before saving this game. The next unsaved game will start with the following player.
+                </p>
+              )}
+            </div>
           </div>
         </article>
         <article className={`panel defense-card ${activeTool === 'defense' ? 'active-tool' : ''}`}>
@@ -3632,7 +3654,7 @@ function EventCard({ editable, event, lineupPlan, onCancel, onEdit, onLineup, on
           <div className="schedule-batting-order">
             <div>
               <strong>Batting Order</strong>
-              <span>{lineupPlan?.defense_plan?.__settings?.continuousBatting ? 'Continuous' : `${orderedPlayers.length} Players`}</span>
+              <span>{editable && lineupPlan?.defense_plan?.__settings?.continuousBatting ? 'Continuous' : `${orderedPlayers.length} Players`}</span>
             </div>
             <ol>
               {orderedPlayers.map((player, index) => (
@@ -3654,6 +3676,40 @@ function EventCard({ editable, event, lineupPlan, onCancel, onEdit, onLineup, on
       </div>
     </article>
   )
+}
+
+function getDefaultBattingOrder(data, selectedGame, selectedPlan) {
+  const rosterOrder = data.roster.map((player) => player.id)
+  if (Array.isArray(selectedPlan?.batting_order) && selectedPlan.batting_order.length) {
+    return selectedPlan.batting_order
+  }
+
+  const previousContinuousPlan = data.lineupPlans
+    .map((plan) => ({
+      event: data.events.find((event) => event.id === plan.event_id),
+      plan,
+    }))
+    .filter(({ event, plan }) => (
+      event &&
+      event.event_type === 'game' &&
+      event.id !== selectedGame.id &&
+      new Date(event.starts_at) < new Date(selectedGame.starts_at) &&
+      plan.defense_plan?.__settings?.continuousBatting &&
+      plan.defense_plan?.__settings?.lastCompletedBatterId &&
+      Array.isArray(plan.batting_order) &&
+      plan.batting_order.length
+    ))
+    .sort((a, b) => new Date(b.event.starts_at) - new Date(a.event.starts_at))[0]?.plan
+
+  if (!previousContinuousPlan) return rosterOrder
+
+  const previousOrder = previousContinuousPlan.batting_order.filter((id) => rosterOrder.includes(id))
+  const missingPlayers = rosterOrder.filter((id) => !previousOrder.includes(id))
+  const mergedOrder = [...previousOrder, ...missingPlayers]
+  const lastBatterIndex = mergedOrder.indexOf(previousContinuousPlan.defense_plan.__settings.lastCompletedBatterId)
+
+  if (lastBatterIndex < 0 || mergedOrder.length < 2) return mergedOrder
+  return [...mergedOrder.slice(lastBatterIndex + 1), ...mergedOrder.slice(0, lastBatterIndex + 1)]
 }
 
 function EventRow({ event }) {
