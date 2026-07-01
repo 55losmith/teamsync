@@ -1880,9 +1880,11 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
                   <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
                   <p>{player.position || 'No positions tagged'}{restingIds.has(player.id) ? ' · Resting pitcher' : ''}{lastCompletedBatterId === player.id ? ' · Last batter' : ''}</p>
                 </div>
-                {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)}>Last</button>}
-                <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
-                <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
+                <div className="batting-row-actions">
+                  {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)}>Last</button>}
+                  <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0} aria-label={`Move ${player.player_name} up`}>↑</button>
+                  <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1} aria-label={`Move ${player.player_name} down`}>↓</button>
+                </div>
               </div>
             ))}
             {unlistedPlayers.map((player) => (

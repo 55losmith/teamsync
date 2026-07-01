@@ -3499,6 +3499,9 @@ p {
 .continuous-toggle input {
   width: 18px;
   height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
 }
 
 .continuous-panel {
@@ -4007,7 +4010,7 @@ p {
 
 .batting-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 36px 36px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border);
@@ -4032,11 +4035,24 @@ p {
   font-size: 0.82rem;
 }
 
-.batting-row button {
+.batting-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.batting-row-actions button {
+  width: 34px;
   min-height: 34px;
   background: var(--surface-soft);
   color: var(--muted-strong);
   padding: 0;
+}
+
+.batting-row-actions button:first-child:not(:last-child) {
+  width: auto;
+  padding: 0 10px;
 }
 
 .defense-board {
