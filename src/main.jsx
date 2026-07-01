@@ -1932,32 +1932,35 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
 
 function FieldView({ assignments }) {
   const usesFourOutfielders = Boolean(assignments.LCF?.length || assignments.RCF?.length)
-  const positions = [
-    ['P', 'field-p'],
-    ['C', 'field-c'],
-    ['1B', 'field-1b'],
-    ['2B', 'field-2b'],
-    ['3B', 'field-3b'],
-    ['SS', 'field-ss'],
-    ['LF', 'field-lf'],
-    ...(usesFourOutfielders
-      ? [['LCF', 'field-lcf'], ['RCF', 'field-rcf']]
-      : [['CF', 'field-cf']]),
-    ['RF', 'field-rf'],
-  ]
+  const outfield = usesFourOutfielders ? ['LF', 'LCF', 'RCF', 'RF'] : ['LF', 'CF', 'RF']
   const hiddenOutfielders = usesFourOutfielders ? assignments.CF || [] : [...(assignments.LCF || []), ...(assignments.RCF || [])]
   const benchPlayers = [...(assignments.Bench || []), ...hiddenOutfielders]
+  const renderPosition = (position) => (
+    <div className={`field-position field-${position.toLowerCase()}`} key={position}>
+      <span>{position}</span>
+      <strong>{assignments[position]?.length ? assignments[position].map((player) => player.player_name.split(' ')[0]).join(', ') : 'Open'}</strong>
+    </div>
+  )
 
   return (
     <div className="field-view">
       <div className="field-diamond" aria-label="Defensive field view">
         <span className="field-alignment-label">{usesFourOutfielders ? '4 Outfield' : '3 Outfield'}</span>
-        {positions.map(([position, className]) => (
-          <div className={`field-position ${className}`} key={position}>
-            <span>{position}</span>
-            <strong>{assignments[position]?.length ? assignments[position].map((player) => player.player_name.split(' ')[0]).join(', ') : 'Open'}</strong>
-          </div>
-        ))}
+        <div className={`field-row field-outfield ${usesFourOutfielders ? 'four-outfield' : ''}`}>
+          {outfield.map(renderPosition)}
+        </div>
+        <div className="field-row field-middle-infield">
+          {renderPosition('SS')}
+          {renderPosition('2B')}
+        </div>
+        <div className="field-row field-corners">
+          {renderPosition('3B')}
+          {renderPosition('P')}
+          {renderPosition('1B')}
+        </div>
+        <div className="field-row field-home-row">
+          {renderPosition('C')}
+        </div>
       </div>
       {benchPlayers.length > 0 && (
         <div className="field-bench">

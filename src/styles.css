@@ -3575,8 +3575,12 @@ p {
 }
 
 .field-diamond {
-  position: relative;
   min-height: 520px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 1.1fr 0.9fr 1fr 0.75fr;
+  gap: 16px;
+  align-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -3584,6 +3588,7 @@ p {
     radial-gradient(circle at 50% 72%, rgba(210, 153, 36, 0.24) 0 15%, transparent 16%),
     radial-gradient(circle at 50% 64%, rgba(34, 197, 94, 0.18) 0 42%, rgba(34, 197, 94, 0.1) 43% 58%, transparent 59%),
     linear-gradient(180deg, #e0f2fe, #ecfdf5 48%, #fef3c7);
+  padding: 58px 28px 22px;
 }
 
 .field-diamond::before {
@@ -3615,9 +3620,9 @@ p {
 }
 
 .field-position {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  width: min(126px, 26vw);
+  width: min(128px, 100%);
   min-height: 48px;
   display: grid;
   place-items: center;
@@ -3646,17 +3651,32 @@ p {
   white-space: nowrap;
 }
 
-.field-p { left: 50%; top: 62%; transform: translate(-50%, -50%); }
-.field-c { left: 50%; top: 84%; transform: translate(-50%, -50%); }
-.field-1b { left: 70%; top: 66%; transform: translate(-50%, -50%); }
-.field-2b { left: 53%; top: 43%; transform: translate(-50%, -50%); }
-.field-3b { left: 30%; top: 66%; transform: translate(-50%, -50%); }
-.field-ss { left: 36%; top: 51%; transform: translate(-50%, -50%); }
-.field-lf { left: 15%; top: 20%; transform: translate(-50%, -50%); }
-.field-lcf { left: 36%; top: 14%; transform: translate(-50%, -50%); }
-.field-cf { left: 50%; top: 10%; transform: translate(-50%, -50%); }
-.field-rcf { left: 64%; top: 14%; transform: translate(-50%, -50%); }
-.field-rf { left: 85%; top: 20%; transform: translate(-50%, -50%); }
+.field-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-outfield {
+  align-items: flex-start;
+}
+
+.field-middle-infield {
+  justify-content: center;
+  gap: clamp(54px, 18vw, 160px);
+}
+
+.field-corners {
+  justify-content: center;
+  gap: clamp(24px, 10vw, 96px);
+}
+
+.field-home-row {
+  justify-content: center;
+}
 
 .field-bench {
   display: grid;
@@ -5728,12 +5748,15 @@ p {
   }
 
   .field-diamond {
-    min-height: 410px;
+    min-height: 390px;
+    grid-template-rows: 1fr 0.8fr 0.9fr 0.65fr;
+    gap: 12px;
     border-radius: 14px;
     background:
       radial-gradient(circle at 50% 78%, rgba(210, 153, 36, 0.22) 0 13%, transparent 14%),
       radial-gradient(ellipse at 50% 44%, rgba(22, 163, 74, 0.28) 0 49%, transparent 50%),
       linear-gradient(180deg, #dff4ff, #e8faee 54%, #fff4c8);
+    padding: 40px 8px 10px;
   }
 
   .field-diamond::before {
@@ -5752,14 +5775,12 @@ p {
   }
 
   .field-position {
-    position: absolute;
-    width: clamp(58px, 17vw, 74px);
+    width: min(72px, 100%);
     min-height: 30px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.07);
     padding: 3px 5px;
-    transform: translate(-50%, -50%);
   }
 
   .field-position span {
@@ -5772,17 +5793,27 @@ p {
     line-height: 1.05;
   }
 
-  .field-lf { left: 15%; top: 26%; }
-  .field-lcf { left: 34%; top: 17%; }
-  .field-cf { left: 50%; top: 14%; }
-  .field-rcf { left: 66%; top: 17%; }
-  .field-rf { left: 85%; top: 26%; }
-  .field-2b { left: 59%; top: 47%; }
-  .field-ss { left: 40%; top: 47%; }
-  .field-p { left: 50%; top: 61%; }
-  .field-3b { left: 31%; top: 69%; }
-  .field-1b { left: 69%; top: 69%; }
-  .field-c { left: 50%; top: 88%; }
+  .field-row {
+    gap: 6px;
+  }
+
+  .field-outfield {
+    justify-content: space-between;
+  }
+
+  .field-middle-infield {
+    justify-content: center;
+    gap: clamp(58px, 22vw, 92px);
+  }
+
+  .field-corners {
+    justify-content: center;
+    gap: clamp(10px, 4vw, 18px);
+  }
+
+  .field-corners .field-position {
+    width: min(66px, 100%);
+  }
 
   .game-mode-innings {
     position: sticky;
