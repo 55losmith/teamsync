@@ -387,14 +387,14 @@ function AppShell({ activePage, children, data, onPage, onSignOut, profile, team
   const claimedPlayers = getClaimedPlayers(data.roster, profile, data.parentClaims)
   const visibleData = isCoach ? data : profile.role === 'follower' ? getFollowerScopedData(data) : getParentScopedData(data, profile)
   const actionCounts = getActionCounts(visibleData)
-  const parentNavKeys = ['dashboard', 'schedule', 'messages', 'dues', 'account']
+  const parentNavKeys = ['dashboard', 'schedule', 'lineup', 'messages', 'dues', 'account']
   if (claimedPlayers.some(isPitcher)) parentNavKeys.splice(3, 0, 'pitch')
   const followerNavKeys = ['dashboard', 'schedule', 'messages', 'account']
   const visibleNav = isCoach
     ? navItems
     : navByKeys(profile.role === 'follower' ? followerNavKeys : parentNavKeys)
   const unreadNotifications = visibleData.notifications.filter((notification) => !notification.read_at).length
-  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'messages', 'dues']
+  const preferredMobileKeys = isCoach ? ['dashboard', 'messages', 'lineup', 'pitch'] : ['dashboard', 'schedule', 'lineup', 'messages']
   const mobilePrimaryNav = visibleNav.filter(([key]) => preferredMobileKeys.includes(key))
   const mobileMoreNav = visibleNav.filter(([key]) => !mobilePrimaryNav.some(([primaryKey]) => primaryKey === key))
   const isMoreActive = mobileMoreNav.some(([key]) => key === activePage)
@@ -527,7 +527,7 @@ function MainPage(props) {
   const pageProps = { ...props, data: pageData, fullData: props.data }
   const pages = {
     dashboard: <DashboardPage {...pageProps} />,
-    lineup: isCoach ? <LineupPage {...pageProps} /> : <DashboardPage {...pageProps} />,
+    lineup: <LineupPage {...pageProps} readOnly={!isCoach} />,
     roster: <RosterPage {...pageProps} editable={isCoach} />,
     schedule: <SchedulePage {...pageProps} editable={isCoach} />,
     pitch: <PitchCountsPage {...pageProps} editable={isCoach} />,
@@ -1460,7 +1460,7 @@ function PitchCountsPage({ data, editable, onRefresh, setMessage, team }) {
   )
 }
 
-function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
+function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = false }) {
   const games = data.events
     .filter((event) => event.event_type === 'game' && event.status !== 'cancelled')
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
@@ -1481,6 +1481,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const [gameModeActive, setGameModeActive] = useState(() => sessionStorage.getItem('huddleup:gameMode') === 'active')
   const [gameModeView, setGameModeView] = useState('inning')
   const [battingCollapsed, setBattingCollapsed] = useState(() => sessionStorage.getItem('huddleup:gameModeBattingCollapsed') === 'true')
+  const [continuousBatting, setContinuousBatting] = useState(true)
   const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
@@ -1488,6 +1489,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
     sessionStorage.setItem('huddleup:selectedGameId', selectedGame.id)
     setBattingOrder(Array.isArray(selectedPlan?.batting_order) && selectedPlan.batting_order.length ? selectedPlan.batting_order : data.roster.map((player) => player.id))
     setDefense(selectedPlan?.defense_plan || {})
+    setContinuousBatting(selectedPlan?.defense_plan?.__settings?.continuousBatting ?? true)
     setBoxScore(getBoxScoreForEvent(data, selectedGame.id, selectedPlan))
     setSavedLineupAt(selectedPlan?.updated_at || '')
   }, [data, selectedGame, selectedPlan])
@@ -1515,7 +1517,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
     const error = await saveGamePlan({
       battingOrder,
       boxScore,
-      defense,
+      defense: { ...defense, __settings: { continuousBatting } },
       eventId: selectedGame.id,
       existingPlan: selectedPlan,
       roster: data.roster,
@@ -1588,10 +1590,48 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
       return orderedPlayers.filter((player) => (defense[`${inning}:${player.id}`] || 'Bench') === position)
     }),
   }))
+  const defensiveField = Object.fromEntries(activePositionRows.map((row) => [row.position, row.players]))
+
+  if (readOnly) {
+    return (
+      <div className="page-stack lineup-page parent-lineup-page">
+        <PageHeader title="Game Lineup" subtitle={selectedGame ? `${selectedGame.title} · ${formatDate(selectedGame.starts_at)}` : 'Batting order will appear here when the coach publishes it.'} />
+        {!selectedGame && <EmptyState title="No lineup yet" body="When a coach creates a game lineup, the batting order will show here." />}
+        {selectedGame && (
+          <>
+            <section className="panel parent-lineup-card">
+              <SectionBar title="Batting Order" count={orderedPlayers.length} />
+              <div className="parent-batting-list">
+                {orderedPlayers.map((player, index) => (
+                  <div key={player.id}>
+                    <span>{index + 1}</span>
+                    <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                  </div>
+                ))}
+              </div>
+              <p className="muted">{continuousBatting ? 'Continuous batting order for this game.' : 'Coach-managed batting order for this game.'}</p>
+            </section>
+            <section className="panel">
+              <SectionBar title="Defense Preview" count={filledPositions.length} />
+              <div className="game-mode-position-grid">
+                {activePositionRows.filter((row) => row.players.length).map((row) => (
+                  <div className="game-mode-position-row" key={row.position}>
+                    <span>{row.position}</span>
+                    <strong>{row.players.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(', ')}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    )
+  }
 
   if (gameModeActive && selectedGame) {
     return (
       <div className="game-mode-screen">
+        <LineupPrintSheet event={selectedGame} fullGameRows={fullGameRows} inningCount={inningCount} orderedPlayers={orderedPlayers} playerShortName={playerShortName} team={team} />
         <header className="game-mode-top">
           <div>
             <span className="game-mode-pill">Game Mode</span>
@@ -1612,6 +1652,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
           </div>
           <div className="game-mode-view-toggle" role="group" aria-label="Game mode view">
             <button className={gameModeView === 'inning' ? 'active' : ''} type="button" onClick={() => setGameModeView('inning')}>Inning</button>
+            <button className={gameModeView === 'field' ? 'active' : ''} type="button" onClick={() => setGameModeView('field')}>Field</button>
             <button className={gameModeView === 'total' ? 'active' : ''} type="button" onClick={() => setGameModeView('total')}>Full Game</button>
           </div>
         </section>
@@ -1642,13 +1683,27 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
               ))}
             </div>
           </section>
+        ) : gameModeView === 'field' ? (
+          <section className="game-mode-total-card">
+            <div className="game-mode-card-head">
+              <div>
+                <span>Field View</span>
+                <strong>Inning {activeInning}</strong>
+              </div>
+              <div className="game-mode-stepper">
+                <button type="button" onClick={() => setActiveInning((current) => Math.max(1, current - 1))} disabled={activeInning === 1}>Prev</button>
+                <button type="button" onClick={() => setActiveInning((current) => Math.min(inningCount, current + 1))} disabled={activeInning === inningCount}>Next</button>
+              </div>
+            </div>
+            <FieldView assignments={defensiveField} />
+          </section>
         ) : (
           <section className="game-mode-grid">
             <article className={`game-mode-card batting-mode-card ${battingCollapsed ? 'collapsed' : ''}`}>
               <div className="game-mode-card-head">
                 <div>
                   <span>Batting Order</span>
-                  <strong>{orderedPlayers.length} Players <small>Continuous Ready</small></strong>
+                  <strong>{orderedPlayers.length} Players <small>{continuousBatting ? 'Continuous' : 'Standard'}</small></strong>
                 </div>
                 <div className="game-mode-stepper">
                   <button type="button" onClick={toggleBattingCollapsed}>{battingCollapsed ? 'Show' : 'Hide'}</button>
@@ -1662,8 +1717,16 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
                       <span>{index + 1}</span>
                       <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
                       {restingIds.has(player.id) && <small>Pitch Rest</small>}
+                      <div className="game-mode-row-actions">
+                        <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
+                        <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
+                      </div>
                     </div>
                   ))}
+                  <label className="continuous-toggle">
+                    <input checked={continuousBatting} type="checkbox" onChange={(event) => setContinuousBatting(event.target.checked)} />
+                    <span>Use Continuous Batting Order</span>
+                  </label>
                 </div>
               )}
             </article>
@@ -1838,6 +1901,82 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
         </div>
       </section>
     </div>
+  )
+}
+
+function FieldView({ assignments }) {
+  const positions = [
+    ['P', 'field-p'],
+    ['C', 'field-c'],
+    ['1B', 'field-1b'],
+    ['2B', 'field-2b'],
+    ['3B', 'field-3b'],
+    ['SS', 'field-ss'],
+    ['LF', 'field-lf'],
+    ['LCF', 'field-lcf'],
+    ['CF', 'field-cf'],
+    ['RCF', 'field-rcf'],
+    ['RF', 'field-rf'],
+  ]
+
+  return (
+    <div className="field-view">
+      <div className="field-diamond" aria-label="Defensive field view">
+        {positions.map(([position, className]) => (
+          <div className={`field-position ${className}`} key={position}>
+            <span>{position}</span>
+            <strong>{assignments[position]?.length ? assignments[position].map((player) => player.player_name.split(' ')[0]).join(', ') : 'Open'}</strong>
+          </div>
+        ))}
+      </div>
+      {assignments.Bench?.length > 0 && (
+        <div className="field-bench">
+          <span>Bench</span>
+          <strong>{assignments.Bench.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(' · ')}</strong>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LineupPrintSheet({ event, fullGameRows, inningCount, orderedPlayers, playerShortName, team }) {
+  return (
+    <section className="print-lineup-sheet" aria-hidden="true">
+      <header>
+        <div>
+          <h1>{team?.name || 'HuddleUp'} Lineup</h1>
+          <p>{event.title} · {formatDate(event.starts_at)} · {event.location || event.event_address || 'Location TBD'}</p>
+        </div>
+        <strong>{team?.age_group || '9U'}</strong>
+      </header>
+      <div className="print-lineup-grid">
+        <article>
+          <h2>Batting Order</h2>
+          <ol>
+            {orderedPlayers.map((player) => (
+              <li key={player.id}>#{player.jersey_number || '-'} {player.player_name}</li>
+            ))}
+          </ol>
+        </article>
+        <article>
+          <h2>Defense By Inning</h2>
+          <div className="print-defense-table">
+            <div className="print-defense-row print-defense-head">
+              <span>Pos</span>
+              {Array.from({ length: inningCount }, (_, index) => <span key={index}>Inning {index + 1}</span>)}
+            </div>
+            {fullGameRows.map((row) => (
+              <div className="print-defense-row" key={row.position}>
+                <strong>{row.position}</strong>
+                {row.innings.map((players, index) => (
+                  <span key={`${row.position}:${index}`}>{players.length ? players.map(playerShortName).join(', ') : '-'}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+    </section>
   )
 }
 
