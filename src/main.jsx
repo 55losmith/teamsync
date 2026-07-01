@@ -1580,9 +1580,25 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     })
   }
 
-  function markLastBatter(playerId) {
+  async function markLastBatter(playerId) {
     setLastCompletedBatterId(playerId)
-    setMessage('Last batter marked. The next unsaved game can start with the following player.')
+    if (!selectedGame) return
+    const error = await saveGamePlan({
+      battingOrder,
+      boxScore,
+      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId: playerId } },
+      eventId: selectedGame.id,
+      existingPlan: selectedPlan,
+      roster: data.roster,
+      teamId: team.id,
+    })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setSavedLineupAt(new Date().toISOString())
+    setMessage('Last batter saved. The next unsaved game will start with this player.')
+    onRefresh()
   }
 
   function playerShortName(player) {
@@ -3711,7 +3727,7 @@ function getDefaultBattingOrder(data, selectedGame, selectedPlan) {
   const lastBatterIndex = mergedOrder.indexOf(previousContinuousPlan.defense_plan.__settings.lastCompletedBatterId)
 
   if (lastBatterIndex < 0 || mergedOrder.length < 2) return mergedOrder
-  return [...mergedOrder.slice(lastBatterIndex + 1), ...mergedOrder.slice(0, lastBatterIndex + 1)]
+  return [...mergedOrder.slice(lastBatterIndex), ...mergedOrder.slice(0, lastBatterIndex)]
 }
 
 function EventRow({ event }) {
