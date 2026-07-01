@@ -1469,7 +1469,8 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const selectedGame = games.find((event) => event.id === selectedGameId) || games[0]
   const availability = getPitchAvailability(data.roster, data.pitchCounts, team)
   const restingIds = new Set(availability.resting.map((row) => row.player.id))
-  const positionOptions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'Bench']
+  const positionOptions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'CF', 'RCF', 'RF', 'Bench']
+  const gameModePositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'CF', 'RCF', 'RF', 'Bench']
   const inningCount = 6
   const [activeInning, setActiveInning] = useState(1)
   const [battingOrder, setBattingOrder] = useState(() => data.roster.map((player) => player.id))
@@ -1478,6 +1479,8 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const [boxScore, setBoxScore] = useState({})
   const [activeTool, setActiveTool] = useState('defense')
   const [gameModeActive, setGameModeActive] = useState(() => sessionStorage.getItem('huddleup:gameMode') === 'active')
+  const [gameModeView, setGameModeView] = useState('inning')
+  const [battingCollapsed, setBattingCollapsed] = useState(() => sessionStorage.getItem('huddleup:gameModeBattingCollapsed') === 'true')
   const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
@@ -1548,6 +1551,20 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
     }))
   }
 
+  function toggleBattingCollapsed() {
+    setBattingCollapsed((current) => {
+      sessionStorage.setItem('huddleup:gameModeBattingCollapsed', String(!current))
+      return !current
+    })
+  }
+
+  function playerShortName(player) {
+    if (!player?.player_name) return 'Open'
+    const parts = player.player_name.trim().split(/\s+/)
+    if (parts.length === 1) return parts[0]
+    return `${parts[0]} ${parts[parts.length - 1].slice(0, 1)}.`
+  }
+
   const orderedPlayers = battingOrder.map((id) => data.roster.find((player) => player.id === id)).filter(Boolean)
   const unlistedPlayers = data.roster.filter((player) => !battingOrder.includes(player.id))
   const activeInningDefense = orderedPlayers.map((player) => ({
@@ -1560,6 +1577,17 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
   const currentBatter = orderedPlayers[0]
   const onDeck = orderedPlayers[1]
   const inHole = orderedPlayers[2]
+  const activePositionRows = gameModePositions.map((position) => ({
+    position,
+    players: activeInningDefense.filter((row) => (row.position || 'Bench') === position).map((row) => row.player),
+  }))
+  const fullGameRows = gameModePositions.map((position) => ({
+    position,
+    innings: Array.from({ length: inningCount }, (_, index) => {
+      const inning = index + 1
+      return orderedPlayers.filter((player) => (defense[`${inning}:${player.id}`] || 'Bench') === position)
+    }),
+  }))
 
   if (gameModeActive && selectedGame) {
     return (
@@ -1570,79 +1598,118 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team }) {
             <h1>{selectedGame.title}</h1>
             <p>{formatDate(selectedGame.starts_at)} · {selectedGame.location || selectedGame.event_address || 'Location TBD'}</p>
           </div>
-          <button className="quiet-button" type="button" onClick={exitGameMode}>Exit</button>
+          <div className="game-mode-top-actions">
+            <button className="quiet-button" type="button" onClick={() => window.print()}>Print</button>
+            <button className="quiet-button" type="button" onClick={exitGameMode}>Exit</button>
+          </div>
         </header>
 
-        <section className="game-mode-scoreboard">
-          <article>
-            <span>Inning</span>
-            <strong>{activeInning}</strong>
-          </article>
-          <article>
-            <span>Pitcher</span>
-            <strong>{pitcherAssignment?.player.player_name || 'Unset'}</strong>
-          </article>
-          <article>
-            <span>Catcher</span>
-            <strong>{catcherAssignment?.player.player_name || 'Unset'}</strong>
-          </article>
-          <article>
-            <span>Due Up</span>
-            <strong>{currentBatter?.player_name || 'Set Order'}</strong>
-            <p>{[onDeck?.player_name, inHole?.player_name].filter(Boolean).join(' · ')}</p>
-          </article>
+        <section className="game-mode-quickbar">
+          <div>
+            <span>Inning {activeInning}</span>
+            <strong>{pitcherAssignment?.player.player_name || 'No pitcher'} · {catcherAssignment?.player.player_name || 'No catcher'}</strong>
+            <small>Due: {[currentBatter?.player_name, onDeck?.player_name, inHole?.player_name].filter(Boolean).join(' · ') || 'Set batting order'}</small>
+          </div>
+          <div className="game-mode-view-toggle" role="group" aria-label="Game mode view">
+            <button className={gameModeView === 'inning' ? 'active' : ''} type="button" onClick={() => setGameModeView('inning')}>Inning</button>
+            <button className={gameModeView === 'total' ? 'active' : ''} type="button" onClick={() => setGameModeView('total')}>Full Game</button>
+          </div>
         </section>
 
-        <section className="game-mode-grid">
-          <article className="game-mode-card batting-mode-card">
+        {gameModeView === 'total' ? (
+          <section className="game-mode-total-card">
             <div className="game-mode-card-head">
               <div>
-                <span>Batting Order</span>
-                <strong>{orderedPlayers.length} Players</strong>
+                <span>Full Game View</span>
+                <strong>Positions By Inning</strong>
               </div>
-              <button type="button" onClick={saveLineup}>Save</button>
+              <button type="button" onClick={() => setGameModeView('inning')}>Back</button>
             </div>
-            <div className="game-mode-order">
-              {orderedPlayers.map((player, index) => (
-                <div className="game-mode-order-row" key={player.id}>
-                  <span>{index + 1}</span>
-                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
-                  {restingIds.has(player.id) && <small>Pitch Rest</small>}
+            <div className="game-mode-matrix" role="table" aria-label="Full game defensive assignments">
+              <div className="game-mode-matrix-row game-mode-matrix-head" role="row">
+                <span>Pos</span>
+                {Array.from({ length: inningCount }, (_, index) => <span key={index}>I{index + 1}</span>)}
+              </div>
+              {fullGameRows.map((row) => (
+                <div className="game-mode-matrix-row" key={row.position} role="row">
+                  <strong>{row.position}</strong>
+                  {row.innings.map((players, index) => (
+                    <span className="game-mode-matrix-cell" key={`${row.position}:${index}`}>
+                      {players.length ? players.map(playerShortName).join(', ') : '-'}
+                    </span>
+                  ))}
                 </div>
               ))}
             </div>
-          </article>
+          </section>
+        ) : (
+          <section className="game-mode-grid">
+            <article className={`game-mode-card batting-mode-card ${battingCollapsed ? 'collapsed' : ''}`}>
+              <div className="game-mode-card-head">
+                <div>
+                  <span>Batting Order</span>
+                  <strong>{orderedPlayers.length} Players <small>Continuous Ready</small></strong>
+                </div>
+                <div className="game-mode-stepper">
+                  <button type="button" onClick={toggleBattingCollapsed}>{battingCollapsed ? 'Show' : 'Hide'}</button>
+                  <button type="button" onClick={saveLineup}>Save</button>
+                </div>
+              </div>
+              {!battingCollapsed && (
+                <div className="game-mode-order">
+                  {orderedPlayers.map((player, index) => (
+                    <div className="game-mode-order-row" key={player.id}>
+                      <span>{index + 1}</span>
+                      <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                      {restingIds.has(player.id) && <small>Pitch Rest</small>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
 
-          <article className="game-mode-card defense-mode-card">
-            <div className="game-mode-card-head">
-              <div>
-                <span>Defense</span>
-                <strong>Inning {activeInning}</strong>
+            <article className="game-mode-card defense-mode-card">
+              <div className="game-mode-card-head">
+                <div>
+                  <span>Defense</span>
+                  <strong>Inning {activeInning}</strong>
+                </div>
+                <div className="game-mode-stepper">
+                  <button type="button" onClick={() => setActiveInning((current) => Math.max(1, current - 1))} disabled={activeInning === 1}>Prev</button>
+                  <button type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save + Next</button>
+                </div>
               </div>
-              <div className="game-mode-stepper">
-                <button type="button" onClick={() => setActiveInning((current) => Math.max(1, current - 1))} disabled={activeInning === 1}>Prev</button>
-                <button type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Next</button>
+              <div className="game-mode-innings" role="group" aria-label="Choose inning">
+                {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
+                  <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>{inning}</button>
+                ))}
               </div>
-            </div>
-            <div className="game-mode-innings" role="group" aria-label="Choose inning">
-              {Array.from({ length: inningCount }, (_, index) => index + 1).map((inning) => (
-                <button className={activeInning === inning ? 'active' : ''} key={inning} type="button" onClick={() => setActiveInning(inning)}>{inning}</button>
-              ))}
-            </div>
-            <div className="game-mode-defense-list">
-              {activeInningDefense.map(({ player, position }) => (
-                <label className="game-mode-defense-row" key={player.id}>
-                  <span>{position || '-'}</span>
-                  <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
-                  <select aria-label={`${player.player_name} position`} value={position} onChange={(event) => assignPosition(activeInning, player.id, event.target.value)}>
-                    <option value="">Bench</option>
-                    {positionOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                </label>
-              ))}
-            </div>
-          </article>
-        </section>
+              <div className="game-mode-position-grid">
+                {activePositionRows.map((row) => (
+                  <div className="game-mode-position-row" key={row.position}>
+                    <span>{row.position}</span>
+                    <strong>{row.players.length ? row.players.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(', ') : 'Open'}</strong>
+                  </div>
+                ))}
+              </div>
+              <details className="game-mode-edit-panel">
+                <summary>Edit Assignments</summary>
+                <div className="game-mode-defense-list">
+                  {activeInningDefense.map(({ player, position }) => (
+                    <label className="game-mode-defense-row" key={player.id}>
+                      <span>{position || '-'}</span>
+                      <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
+                      <select aria-label={`${player.player_name} position`} value={position} onChange={(event) => assignPosition(activeInning, player.id, event.target.value)}>
+                        <option value="">Bench</option>
+                        {positionOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </details>
+            </article>
+          </section>
+        )}
       </div>
     )
   }
