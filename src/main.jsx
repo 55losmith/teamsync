@@ -763,7 +763,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   function startGameMode(event) {
     if (!event) return
     sessionStorage.setItem('huddleup:selectedGameId', event.id)
-    sessionStorage.setItem('huddleup:gameMode', 'active')
+    sessionStorage.removeItem('huddleup:gameMode')
     window.dispatchEvent(new Event('huddleup:gameModeChange'))
     onPage('lineup')
   }
@@ -888,7 +888,7 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
           </div>
           <footer>
             <Badge label={nextEvent?.event_type || 'Event'} />
-            {nextEvent?.event_type === 'game' && <button type="button" onClick={() => startGameMode(nextEvent)}>Start Game Mode</button>}
+            {nextEvent?.event_type === 'game' && <button type="button" onClick={() => startGameMode(nextEvent)}>Open Lineup</button>}
             <button type="button" onClick={() => onPage('schedule')}>View Schedule</button>
           </footer>
         </section>
@@ -1247,7 +1247,7 @@ function SchedulePage({ data, editable, onPage, onRefresh, setMessage, team }) {
 
   function buildLineup(event) {
     sessionStorage.setItem('huddleup:selectedGameId', event.id)
-    sessionStorage.setItem('huddleup:gameMode', 'active')
+    sessionStorage.removeItem('huddleup:gameMode')
     window.dispatchEvent(new Event('huddleup:gameModeChange'))
     onPage('lineup')
   }
@@ -1543,6 +1543,14 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     window.dispatchEvent(new Event('huddleup:gameModeChange'))
   }
 
+  function enterGameMode() {
+    if (!selectedGame) return
+    sessionStorage.setItem('huddleup:selectedGameId', selectedGame.id)
+    sessionStorage.setItem('huddleup:gameMode', 'active')
+    setGameModeActive(true)
+    window.dispatchEvent(new Event('huddleup:gameModeChange'))
+  }
+
   function updateStat(playerId, stat, value) {
     setBoxScore((current) => ({
       ...current,
@@ -1809,6 +1817,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
             <button className="soft-button" type="button" onClick={() => onPage('pitch')}>Pitch Counts</button>
             <button className="soft-button" type="button" onClick={() => onPage('messages')}>Broadcast</button>
             <button className="soft-button" type="button" onClick={saveLineup}>Save Plan</button>
+            <button className="primary fit" type="button" onClick={enterGameMode}>Start Game Mode</button>
             <button className="primary fit" type="button" onClick={saveAndNextInning} disabled={activeInning === inningCount}>Save & Next Inning</button>
             {gameModeActive && <button className="quiet-button" type="button" onClick={exitGameMode}>Exit Mode</button>}
           </div>
@@ -1905,6 +1914,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
 }
 
 function FieldView({ assignments }) {
+  const usesFourOutfielders = Boolean(assignments.LCF?.length || assignments.RCF?.length)
   const positions = [
     ['P', 'field-p'],
     ['C', 'field-c'],
@@ -1913,15 +1923,18 @@ function FieldView({ assignments }) {
     ['3B', 'field-3b'],
     ['SS', 'field-ss'],
     ['LF', 'field-lf'],
-    ['LCF', 'field-lcf'],
-    ['CF', 'field-cf'],
-    ['RCF', 'field-rcf'],
+    ...(usesFourOutfielders
+      ? [['LCF', 'field-lcf'], ['RCF', 'field-rcf']]
+      : [['CF', 'field-cf']]),
     ['RF', 'field-rf'],
   ]
+  const hiddenOutfielders = usesFourOutfielders ? assignments.CF || [] : [...(assignments.LCF || []), ...(assignments.RCF || [])]
+  const benchPlayers = [...(assignments.Bench || []), ...hiddenOutfielders]
 
   return (
     <div className="field-view">
       <div className="field-diamond" aria-label="Defensive field view">
+        <span className="field-alignment-label">{usesFourOutfielders ? '4 Outfield' : '3 Outfield'}</span>
         {positions.map(([position, className]) => (
           <div className={`field-position ${className}`} key={position}>
             <span>{position}</span>
@@ -1929,10 +1942,10 @@ function FieldView({ assignments }) {
           </div>
         ))}
       </div>
-      {assignments.Bench?.length > 0 && (
+      {benchPlayers.length > 0 && (
         <div className="field-bench">
           <span>Bench</span>
-          <strong>{assignments.Bench.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(' · ')}</strong>
+          <strong>{benchPlayers.map((player) => `#${player.jersey_number || '-'} ${player.player_name}`).join(' · ')}</strong>
         </div>
       )}
     </div>
@@ -3550,7 +3563,7 @@ function EventCard({ editable, event, onCancel, onEdit, onLineup, onStats, onSco
   const isCancelled = event.status === 'cancelled'
   const isGame = event.event_type === 'game'
   const isPast = new Date(event.starts_at) < new Date()
-  const primaryGameAction = isPast ? 'Box Score' : 'Game Mode'
+  const primaryGameAction = isPast ? 'Box Score' : 'Lineup'
   return (
     <article className={`event-card ${isCancelled ? 'cancelled-event' : ''}`}>
       <div className="date-block"><span>{date.toLocaleString(undefined, { month: 'short' })}</span><strong>{date.getDate()}</strong><small>{date.toLocaleString(undefined, { weekday: 'short' })}</small></div>
