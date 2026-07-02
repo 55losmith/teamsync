@@ -1266,9 +1266,24 @@ function SchedulePage({ data, editable, fullData, onPage, onRefresh, setMessage,
     onPage('lineup')
   }
 
+  function exportCalendar() {
+    const exportableEvents = data.events.filter((event) => event.status !== 'cancelled')
+    if (!exportableEvents.length) {
+      setMessage('There are no scheduled events to export yet.')
+      return
+    }
+
+    downloadCalendarFile(exportableEvents, team)
+    setMessage('Calendar export created. Open the downloaded file on your phone to add the schedule.')
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Schedule" subtitle={`${data.events.length} events this season`} action={editable && '+ Add Event'} onAction={() => { setEditingEventId(null); setForm(emptyForms.event); setShowForm(!showForm) }} />
+      <div className="schedule-tools">
+        <button className="ghost fit" type="button" onClick={exportCalendar}>Export Calendar</button>
+        <small>Creates an Apple/Google compatible calendar file for every scheduled event.</small>
+      </div>
       <Segmented value={tab} onChange={setTab} options={[['upcoming', `Upcoming (${data.events.filter((e) => new Date(e.starts_at) >= now).length})`], ['past', `Past (${data.events.filter((e) => new Date(e.starts_at) < now).length})`]]} />
       {editable && showForm && (
         <form className="panel form grid-form" onSubmit={submit}>
@@ -4231,6 +4246,87 @@ function roundMoney(value) {
 
 function getMapHref(location) {
   return `https://maps.apple.com/?q=${encodeURIComponent(location)}`
+}
+
+function downloadCalendarFile(events, team) {
+  const calendar = buildCalendarFile(events, team)
+  const blob = new Blob([calendar], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${slugify(team?.name || 'huddleup')}-schedule.ics`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function buildCalendarFile(events, team) {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//HuddleUp//Team Schedule//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeCalendarText(`${team?.name || 'HuddleUp'} Schedule`)}`,
+  ]
+
+  events
+    .slice()
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
+    .forEach((event) => {
+      const start = new Date(event.starts_at)
+      const end = new Date(start.getTime() + calendarDurationMinutes(event) * 60 * 1000)
+      const location = event.event_address || event.location || ''
+      const description = [
+        event.opponent ? `Opponent: ${event.opponent}` : '',
+        event.home_away ? `Home/Away: ${titleCase(event.home_away)}` : '',
+        event.our_score !== null && event.opponent_score !== null ? `Score: ${event.our_score}-${event.opponent_score}` : '',
+        event.notes || '',
+      ].filter(Boolean).join('\\n')
+
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:${event.id || `${start.getTime()}-${event.title}`}@huddleup`,
+        `DTSTAMP:${formatCalendarDate(new Date())}`,
+        `DTSTART:${formatCalendarDate(start)}`,
+        `DTEND:${formatCalendarDate(end)}`,
+        `SUMMARY:${escapeCalendarText(event.title || titleCase(event.event_type || 'Event'))}`,
+        location ? `LOCATION:${escapeCalendarText(location)}` : '',
+        description ? `DESCRIPTION:${escapeCalendarText(description)}` : '',
+        event.status === 'cancelled' ? 'STATUS:CANCELLED' : 'STATUS:CONFIRMED',
+        'END:VEVENT',
+      )
+    })
+
+  lines.push('END:VCALENDAR')
+  return `${lines.filter(Boolean).join('\r\n')}\r\n`
+}
+
+function calendarDurationMinutes(event) {
+  if (event.event_type === 'game') return 120
+  if (event.event_type === 'practice') return 90
+  if (event.event_type === 'meeting') return 60
+  return 90
+}
+
+function formatCalendarDate(date) {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+}
+
+function escapeCalendarText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;')
+}
+
+function slugify(value) {
+  return String(value || 'schedule')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'schedule'
 }
 
 function groupTournamentDues(dues) {

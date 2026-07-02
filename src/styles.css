@@ -434,6 +434,14 @@ p {
   box-shadow: var(--shadow-sm);
 }
 
+.schedule-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .icon-dismiss {
   width: 34px;
   min-width: 34px;
@@ -5167,6 +5175,12 @@ p {
     font-size: 0.82rem;
     line-height: 1.1;
     white-space: nowrap;
+  }
+
+  .schedule-tools {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .toolbar {
