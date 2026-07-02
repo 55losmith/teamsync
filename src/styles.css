@@ -5697,6 +5697,123 @@ p {
     color: #ffffff;
   }
 
+  .lineup-page {
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .lineup-page .game-day-command {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .lineup-page .game-day-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    overflow: visible;
+    padding: 4px;
+  }
+
+  .lineup-page .game-day-tabs button {
+    min-height: 38px;
+    padding: 0 5px;
+    font-size: 0.72rem;
+  }
+
+  .lineup-page .active-tool {
+    gap: 10px;
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .lineup-page .section-bar {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .lineup-page .section-bar h2 {
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+  }
+
+  .lineup-planner-toolbar {
+    gap: 8px;
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .lineup-planner-toolbar .inning-switcher {
+    width: 100%;
+  }
+
+  .lineup-planner-toolbar .soft-button {
+    min-height: 34px;
+    width: 100%;
+    font-size: 0.78rem;
+  }
+
+  .lineup-field-card {
+    overflow: hidden;
+  }
+
+  .lineup-field-card .field-view {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    gap: 8px;
+  }
+
+  .lineup-field-card .field-diamond {
+    width: 100%;
+    height: clamp(270px, 76vw, 340px);
+    min-height: 0;
+    max-height: 52vh;
+    aspect-ratio: auto;
+    border-radius: 12px;
+  }
+
+  .lineup-field-card .field-alignment-label {
+    top: 7px;
+    right: 7px;
+    font-size: 0.56rem;
+    padding: 4px 7px;
+  }
+
+  .lineup-field-card .field-position {
+    width: clamp(48px, 15vw, 60px);
+    min-height: 28px;
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .lineup-field-card .field-position span {
+    font-size: 0.46rem;
+    line-height: 1;
+  }
+
+  .lineup-field-card .field-position strong {
+    font-size: 0.54rem;
+    line-height: 1.02;
+  }
+
+  .lineup-field-card .field-bench {
+    border-radius: 10px;
+    padding: 9px;
+  }
+
+  .lineup-field-card .field-lf { left: 16%; top: 30%; }
+  .lineup-field-card .field-lcf { left: 34%; top: 21%; }
+  .lineup-field-card .field-cf { left: 50%; top: 17%; }
+  .lineup-field-card .field-rcf { left: 66%; top: 21%; }
+  .lineup-field-card .field-rf { left: 84%; top: 30%; }
+  .lineup-field-card .field-ss { left: 38%; top: 51%; }
+  .lineup-field-card .field-2b { left: 62%; top: 51%; }
+  .lineup-field-card .field-3b { left: 28%; top: 69%; }
+  .lineup-field-card .field-p { left: 50%; top: 62%; }
+  .lineup-field-card .field-1b { left: 72%; top: 69%; }
+  .lineup-field-card .field-c { left: 50%; top: 88%; }
+
   .game-mode-shell .sidebar,
   .game-mode-shell .mobile-bottom-nav {
     display: none;
