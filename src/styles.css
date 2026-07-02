@@ -5700,6 +5700,9 @@ p {
   .lineup-page {
     gap: 14px;
     min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .lineup-page .game-day-command {
@@ -5711,7 +5714,9 @@ p {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
-    overflow: visible;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
     padding: 4px;
   }
 
@@ -5724,6 +5729,9 @@ p {
   .lineup-page .active-tool {
     gap: 10px;
     min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
     padding: 12px;
   }
 
@@ -5738,13 +5746,31 @@ p {
   }
 
   .lineup-planner-toolbar {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
     gap: 8px;
     border-bottom: 0;
+    overflow: hidden;
     padding-bottom: 0;
   }
 
   .lineup-planner-toolbar .inning-switcher {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .lineup-planner-toolbar .inning-switcher::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lineup-planner-toolbar .inning-switcher button {
+    min-width: max-content;
+    padding: 0 10px;
   }
 
   .lineup-planner-toolbar .soft-button {
@@ -5754,6 +5780,9 @@ p {
   }
 
   .lineup-field-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
   }
 
@@ -5766,7 +5795,7 @@ p {
   }
 
   .lineup-field-card .field-diamond {
-    width: min(100%, 430px);
+    width: min(100%, calc(100vw - 72px), 360px);
     height: auto;
     min-height: 0;
     aspect-ratio: 1 / 1;
@@ -6034,11 +6063,13 @@ p {
 
   .lineup-field-card .field-view {
     justify-items: center;
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
   }
 
   .lineup-field-card .field-diamond {
-    width: min(100%, 430px);
+    width: min(100%, calc(100vw - 72px), 360px);
     min-height: 0;
     aspect-ratio: 1 / 1;
   }
