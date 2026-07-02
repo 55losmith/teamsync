@@ -741,24 +741,34 @@ function DashboardPage({ data, fullData, onPage, onRefresh, profile, setMessage,
   const hasTeamData = data.roster.length || data.events.length || data.dues.length || data.announcements.length
   const recentBroadcast = data.announcements[0]
   const actionCounts = getActionCounts(data)
-  const financeDismissKey = `teamsync:finance-alert:${profile.id}:${team?.id}:${actionCounts.openDues}:${data.dues.filter(needsDueAction).map((due) => `${due.id}:${due.status}:${due.paid_amount}:${due.waived_amount}`).join('|')}`
-  const broadcastDismissKey = recentBroadcast ? `teamsync:broadcast-alert:${profile.id}:${recentBroadcast.id}` : ''
-  const [dismissedFinanceKey, setDismissedFinanceKey] = useState(() => localStorage.getItem('teamsync:dismissed-finance-alert') || '')
-  const [dismissedBroadcastKey, setDismissedBroadcastKey] = useState(() => localStorage.getItem('teamsync:dismissed-broadcast-alert') || '')
-  const showFinanceAction = actionCounts.openDues > 0 && dismissedFinanceKey !== financeDismissKey
+  const financeDismissStorageKey = `huddleup:dismissed-finance-alerts:${profile.id}:${team?.id || 'no-team'}`
+  const financeDismissSignature = getFinanceAlertSignature(data.dues)
+  const broadcastDismissStorageKey = `huddleup:dismissed-broadcast-alerts:${profile.id}:${team?.id || 'no-team'}`
+  const broadcastDismissSignature = getBroadcastAlertSignature(recentBroadcast)
+  const [dismissedFinanceSignatures, setDismissedFinanceSignatures] = useState(() => readDismissedSignatures(financeDismissStorageKey))
+  const [dismissedBroadcastSignatures, setDismissedBroadcastSignatures] = useState(() => readDismissedSignatures(broadcastDismissStorageKey))
+  const showFinanceAction = actionCounts.openDues > 0 && financeDismissSignature && !dismissedFinanceSignatures.includes(financeDismissSignature)
   const hasActions = actionCounts.unreadMessages > 0 || showFinanceAction
-  const showBroadcastAlert = recentBroadcast && isRecentBroadcast(recentBroadcast) && dismissedBroadcastKey !== broadcastDismissKey
+  const showBroadcastAlert = recentBroadcast && isRecentBroadcast(recentBroadcast) && broadcastDismissSignature && !dismissedBroadcastSignatures.includes(broadcastDismissSignature)
   const dueTotals = getTotals(data.dues)
   const latestConversation = data.conversations[0]
 
+  useEffect(() => {
+    setDismissedFinanceSignatures(readDismissedSignatures(financeDismissStorageKey))
+  }, [financeDismissStorageKey])
+
+  useEffect(() => {
+    setDismissedBroadcastSignatures(readDismissedSignatures(broadcastDismissStorageKey))
+  }, [broadcastDismissStorageKey])
+
   function dismissFinanceAction() {
-    localStorage.setItem('teamsync:dismissed-finance-alert', financeDismissKey)
-    setDismissedFinanceKey(financeDismissKey)
+    const signatures = saveDismissedSignature(financeDismissStorageKey, financeDismissSignature)
+    setDismissedFinanceSignatures(signatures)
   }
 
   function dismissBroadcastAlert() {
-    localStorage.setItem('teamsync:dismissed-broadcast-alert', broadcastDismissKey)
-    setDismissedBroadcastKey(broadcastDismissKey)
+    const signatures = saveDismissedSignature(broadcastDismissStorageKey, broadcastDismissSignature)
+    setDismissedBroadcastSignatures(signatures)
   }
 
   function startGameMode(event) {
@@ -3925,6 +3935,60 @@ function isRecentBroadcast(broadcast) {
   const broadcastDate = new Date(broadcast.created_at)
   const sevenDays = 7 * 24 * 60 * 60 * 1000
   return Date.now() - broadcastDate.getTime() <= sevenDays
+}
+
+function readDismissedSignatures(storageKey) {
+  if (typeof window === 'undefined' || !storageKey) return []
+  try {
+    const value = localStorage.getItem(storageKey)
+    if (!value) return []
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [String(parsed)]
+  } catch {
+    const fallback = localStorage.getItem(storageKey)
+    return fallback ? [fallback] : []
+  }
+}
+
+function saveDismissedSignature(storageKey, signature) {
+  if (typeof window === 'undefined' || !storageKey || !signature) return []
+  const signatures = readDismissedSignatures(storageKey).filter((item) => item !== signature)
+  const next = [signature, ...signatures].slice(0, 30)
+  localStorage.setItem(storageKey, JSON.stringify(next))
+  return next
+}
+
+function normalizeAlertValue(value) {
+  return value === null || value === undefined || value === '' ? '0' : String(value)
+}
+
+function getFinanceAlertSignature(dues) {
+  return dues
+    .filter(needsDueAction)
+    .map((due) => [
+      due.id,
+      due.roster_member_id,
+      due.due_type,
+      due.month,
+      due.tournament_name,
+      due.status,
+      normalizeAlertValue(due.amount),
+      normalizeAlertValue(due.paid_amount),
+      normalizeAlertValue(due.waived_amount),
+      normalizeAlertValue(due.due_date),
+    ].join('~'))
+    .sort()
+    .join('|')
+}
+
+function getBroadcastAlertSignature(broadcast) {
+  if (!broadcast?.id) return ''
+  return [
+    broadcast.id,
+    broadcast.updated_at || broadcast.created_at || '',
+    broadcast.title || '',
+    broadcast.body || '',
+  ].join('~')
 }
 
 function getParentScopedData(data, profile) {
