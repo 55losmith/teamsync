@@ -5760,16 +5760,16 @@ p {
   .lineup-field-card .field-view {
     width: 100%;
     max-width: 100%;
+    justify-items: center;
     overflow: hidden;
     gap: 8px;
   }
 
   .lineup-field-card .field-diamond {
-    width: 100%;
-    height: clamp(270px, 76vw, 340px);
+    width: min(100%, 430px);
+    height: auto;
     min-height: 0;
-    max-height: 52vh;
-    aspect-ratio: auto;
+    aspect-ratio: 1 / 1;
     border-radius: 12px;
   }
 
@@ -5781,10 +5781,10 @@ p {
   }
 
   .lineup-field-card .field-position {
-    width: clamp(48px, 15vw, 60px);
-    min-height: 28px;
+    width: clamp(46px, 14vw, 58px);
+    min-height: 27px;
     border-radius: 8px;
-    padding: 3px;
+    padding: 3px 4px;
   }
 
   .lineup-field-card .field-position span {
@@ -5793,7 +5793,7 @@ p {
   }
 
   .lineup-field-card .field-position strong {
-    font-size: 0.54rem;
+    font-size: 0.53rem;
     line-height: 1.02;
   }
 
@@ -5802,11 +5802,11 @@ p {
     padding: 9px;
   }
 
-  .lineup-field-card .field-lf { left: 16%; top: 30%; }
-  .lineup-field-card .field-lcf { left: 34%; top: 21%; }
+  .lineup-field-card .field-lf { left: 17%; top: 30%; }
+  .lineup-field-card .field-lcf { left: 35%; top: 22%; }
   .lineup-field-card .field-cf { left: 50%; top: 17%; }
-  .lineup-field-card .field-rcf { left: 66%; top: 21%; }
-  .lineup-field-card .field-rf { left: 84%; top: 30%; }
+  .lineup-field-card .field-rcf { left: 65%; top: 22%; }
+  .lineup-field-card .field-rf { left: 83%; top: 30%; }
   .lineup-field-card .field-ss { left: 38%; top: 51%; }
   .lineup-field-card .field-2b { left: 62%; top: 51%; }
   .lineup-field-card .field-3b { left: 28%; top: 69%; }
@@ -6031,6 +6031,43 @@ p {
   .field-p { left: 50%; top: 62%; }
   .field-1b { left: 73%; top: 68%; }
   .field-c { left: 50%; top: 88%; }
+
+  .lineup-field-card .field-view {
+    justify-items: center;
+    overflow: hidden;
+  }
+
+  .lineup-field-card .field-diamond {
+    width: min(100%, 430px);
+    min-height: 0;
+    aspect-ratio: 1 / 1;
+  }
+
+  .lineup-field-card .field-position {
+    width: clamp(46px, 14vw, 58px);
+    min-height: 27px;
+    padding: 3px 4px;
+  }
+
+  .lineup-field-card .field-position span {
+    font-size: 0.46rem;
+  }
+
+  .lineup-field-card .field-position strong {
+    font-size: 0.53rem;
+  }
+
+  .lineup-field-card .field-lf { left: 17%; top: 30%; }
+  .lineup-field-card .field-lcf { left: 35%; top: 22%; }
+  .lineup-field-card .field-cf { left: 50%; top: 17%; }
+  .lineup-field-card .field-rcf { left: 65%; top: 22%; }
+  .lineup-field-card .field-rf { left: 83%; top: 30%; }
+  .lineup-field-card .field-ss { left: 38%; top: 51%; }
+  .lineup-field-card .field-2b { left: 62%; top: 51%; }
+  .lineup-field-card .field-3b { left: 28%; top: 69%; }
+  .lineup-field-card .field-p { left: 50%; top: 62%; }
+  .lineup-field-card .field-1b { left: 72%; top: 69%; }
+  .lineup-field-card .field-c { left: 50%; top: 88%; }
 
   .game-mode-innings {
     position: sticky;
