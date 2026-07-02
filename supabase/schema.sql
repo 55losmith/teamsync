@@ -33,10 +33,12 @@ create table if not exists public.profiles (
   full_name text not null default '',
   role text not null check (role in ('coach', 'parent', 'follower')),
   team_id uuid references public.teams(id) on delete set null,
+  team_name text,
   email text,
   created_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists team_name text;
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('coach', 'parent', 'follower'));
 
@@ -314,6 +316,58 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
+
+create or replace function public.set_profile_team_name()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.team_id is null then
+    new.team_name = null;
+  else
+    select name into new.team_name
+    from public.teams
+    where id = new.team_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists set_profile_team_name_before_write on public.profiles;
+create trigger set_profile_team_name_before_write
+before insert or update of team_id on public.profiles
+for each row execute function public.set_profile_team_name();
+
+create or replace function public.sync_profile_team_name_from_team()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set team_name = new.name
+  where team_id = new.id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_profile_team_name_after_team_update on public.teams;
+create trigger sync_profile_team_name_after_team_update
+after update of name on public.teams
+for each row
+when (old.name is distinct from new.name)
+execute function public.sync_profile_team_name_from_team();
+
+update public.profiles p
+set team_name = t.name
+from public.teams t
+where p.team_id = t.id
+  and p.team_name is distinct from t.name;
 
 alter table public.teams enable row level security;
 alter table public.profiles enable row level security;

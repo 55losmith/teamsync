@@ -10,6 +10,8 @@ drop function if exists public.can_read_conversation(uuid);
 drop function if exists public.current_team_id();
 drop function if exists public.current_role();
 drop function if exists public.handle_new_user();
+drop function if exists public.set_profile_team_name();
+drop function if exists public.sync_profile_team_name_from_team();
 
 drop table if exists public.notifications cascade;
 drop table if exists public.conversation_messages cascade;
