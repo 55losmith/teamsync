@@ -1604,6 +1604,27 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     onRefresh()
   }
 
+  async function clearLastBatter() {
+    setLastCompletedBatterId('')
+    if (!selectedGame) return
+    const error = await saveGamePlan({
+      battingOrder,
+      boxScore,
+      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId: '', battingOrderManual } },
+      eventId: selectedGame.id,
+      existingPlan: selectedPlan,
+      roster: data.roster,
+      teamId: team.id,
+    })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setSavedLineupAt(new Date().toISOString())
+    setMessage('Last batter cleared.')
+    onRefresh()
+  }
+
   function playerShortName(player) {
     if (!player?.player_name) return 'Open'
     const parts = player.player_name.trim().split(/\s+/)
@@ -1762,7 +1783,11 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
                       <strong>#{player.jersey_number || '-'} {player.player_name}</strong>
                       {restingIds.has(player.id) && <small>Pitch Rest</small>}
                       <div className="game-mode-row-actions">
-                        {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)} title="Mark last batter">✓</button>}
+                        {continuousBatting && (
+                          lastCompletedBatterId === player.id
+                            ? <button type="button" onClick={clearLastBatter} title="Clear last batter">×</button>
+                            : <button type="button" onClick={() => markLastBatter(player.id)} title="Mark last batter">✓</button>
+                        )}
                         <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0}>↑</button>
                         <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1}>↓</button>
                       </div>
@@ -1900,7 +1925,11 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
                   <p>{player.position || 'No positions tagged'}{restingIds.has(player.id) ? ' · Resting pitcher' : ''}{lastCompletedBatterId === player.id ? ' · Last batter' : ''}</p>
                 </div>
                 <div className="batting-row-actions">
-                  {continuousBatting && <button type="button" onClick={() => markLastBatter(player.id)}>Last</button>}
+                  {continuousBatting && (
+                    lastCompletedBatterId === player.id
+                      ? <button type="button" onClick={clearLastBatter}>Clear</button>
+                      : <button type="button" onClick={() => markLastBatter(player.id)}>Last</button>
+                  )}
                   <button type="button" onClick={() => movePlayer(player.id, -1)} disabled={index === 0} aria-label={`Move ${player.player_name} up`}>↑</button>
                   <button type="button" onClick={() => movePlayer(player.id, 1)} disabled={index === orderedPlayers.length - 1} aria-label={`Move ${player.player_name} down`}>↓</button>
                 </div>
@@ -1916,7 +1945,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
               </label>
               {continuousBatting && (
                 <p>
-                  Mark the last batter used before saving this game. The next unsaved game will start with the following player.
+                  Mark the last batter used before saving this game. The next unsaved game will start with the marked player.
                 </p>
               )}
             </div>
