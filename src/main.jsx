@@ -1277,12 +1277,37 @@ function SchedulePage({ data, editable, fullData, onPage, onRefresh, setMessage,
     setMessage('Calendar export created. Open the downloaded file on your phone to add the schedule.')
   }
 
+  function subscribeCalendar() {
+    const feedUrl = getCalendarFeedUrl(team)
+    if (!feedUrl) {
+      setMessage('Calendar subscription needs the calendar feed SQL to be run first.')
+      return
+    }
+
+    window.location.href = feedUrl.replace(/^https?:\/\//, 'webcal://')
+  }
+
+  async function copyCalendarLink() {
+    const feedUrl = getCalendarFeedUrl(team)
+    if (!feedUrl) {
+      setMessage('Calendar subscription needs the calendar feed SQL to be run first.')
+      return
+    }
+
+    await navigator.clipboard.writeText(feedUrl)
+    setMessage('Calendar subscription link copied.')
+  }
+
   return (
     <div className="page-stack">
       <PageHeader title="Schedule" subtitle={`${data.events.length} events this season`} action={editable && '+ Add Event'} onAction={() => { setEditingEventId(null); setForm(emptyForms.event); setShowForm(!showForm) }} />
       <div className="schedule-tools">
-        <button className="ghost fit" type="button" onClick={exportCalendar}>Export Calendar</button>
-        <small>Creates an Apple/Google compatible calendar file for every scheduled event.</small>
+        <div className="schedule-tool-actions">
+          <button className="ghost fit" type="button" onClick={exportCalendar}>Export Calendar</button>
+          <button className="ghost fit" type="button" onClick={subscribeCalendar}>Subscribe Calendar</button>
+          <button className="ghost fit" type="button" onClick={copyCalendarLink}>Copy Feed Link</button>
+        </div>
+        <small>Export is a one-time file. Subscribe keeps the phone calendar updated as the schedule changes.</small>
       </div>
       <Segmented value={tab} onChange={setTab} options={[['upcoming', `Upcoming (${data.events.filter((e) => new Date(e.starts_at) >= now).length})`], ['past', `Past (${data.events.filter((e) => new Date(e.starts_at) < now).length})`]]} />
       {editable && showForm && (
@@ -4246,6 +4271,14 @@ function roundMoney(value) {
 
 function getMapHref(location) {
   return `https://maps.apple.com/?q=${encodeURIComponent(location)}`
+}
+
+function getCalendarFeedUrl(team) {
+  if (typeof window === 'undefined' || !team?.id || !team?.calendar_feed_token) return ''
+  const url = new URL('/api/calendar', window.location.origin)
+  url.searchParams.set('team', team.id)
+  url.searchParams.set('token', team.calendar_feed_token)
+  return url.toString()
 }
 
 function downloadCalendarFile(events, team) {

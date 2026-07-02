@@ -442,6 +442,12 @@ p {
   font-size: 0.86rem;
 }
 
+.schedule-tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .icon-dismiss {
   width: 34px;
   min-width: 34px;

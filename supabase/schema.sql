@@ -13,6 +13,7 @@ create table if not exists public.teams (
   secondary_color text not null default '#111827',
   accent_color text not null default '#d39a24',
   logo_url text,
+  calendar_feed_token uuid not null default gen_random_uuid(),
   join_code text unique not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
@@ -27,6 +28,7 @@ alter table public.teams add column if not exists primary_color text not null de
 alter table public.teams add column if not exists secondary_color text not null default '#111827';
 alter table public.teams add column if not exists accent_color text not null default '#d39a24';
 alter table public.teams add column if not exists logo_url text;
+alter table public.teams add column if not exists calendar_feed_token uuid not null default gen_random_uuid();
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
