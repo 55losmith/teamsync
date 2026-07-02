@@ -1491,6 +1491,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
   const [battingCollapsed, setBattingCollapsed] = useState(() => sessionStorage.getItem('huddleup:gameModeBattingCollapsed') === 'true')
   const [continuousBatting, setContinuousBatting] = useState(true)
   const [lastCompletedBatterId, setLastCompletedBatterId] = useState('')
+  const [battingOrderManual, setBattingOrderManual] = useState(false)
   const selectedPlan = selectedGame ? data.lineupPlans.find((plan) => plan.event_id === selectedGame.id) : null
 
   useEffect(() => {
@@ -1502,11 +1503,13 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     setDefense(selectedPlan?.defense_plan || {})
     setContinuousBatting(settings.continuousBatting ?? true)
     setLastCompletedBatterId(settings.lastCompletedBatterId || '')
+    setBattingOrderManual(settings.battingOrderManual || false)
     setBoxScore(getBoxScoreForEvent(data, selectedGame.id, selectedPlan))
     setSavedLineupAt(selectedPlan?.updated_at || '')
   }, [data, selectedGame, selectedPlan])
 
   function movePlayer(playerId, direction) {
+    setBattingOrderManual(true)
     setBattingOrder((current) => {
       const next = [...current]
       const index = next.indexOf(playerId)
@@ -1529,7 +1532,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     const error = await saveGamePlan({
       battingOrder,
       boxScore,
-      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId } },
+      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId, battingOrderManual } },
       eventId: selectedGame.id,
       existingPlan: selectedPlan,
       roster: data.roster,
@@ -1586,7 +1589,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
     const error = await saveGamePlan({
       battingOrder,
       boxScore,
-      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId: playerId } },
+      defense: { ...defense, __settings: { continuousBatting, lastCompletedBatterId: playerId, battingOrderManual } },
       eventId: selectedGame.id,
       existingPlan: selectedPlan,
       roster: data.roster,
@@ -1904,7 +1907,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
               </div>
             ))}
             {unlistedPlayers.map((player) => (
-              <button className="soft-button" key={player.id} type="button" onClick={() => setBattingOrder([...battingOrder, player.id])}>Add {player.player_name}</button>
+              <button className="soft-button" key={player.id} type="button" onClick={() => { setBattingOrderManual(true); setBattingOrder([...battingOrder, player.id]) }}>Add {player.player_name}</button>
             ))}
             <div className="continuous-panel">
               <label className="continuous-toggle">
@@ -3698,10 +3701,6 @@ function EventCard({ editable, event, lineupPlan, onCancel, onEdit, onLineup, on
 
 function getDefaultBattingOrder(data, selectedGame, selectedPlan) {
   const rosterOrder = data.roster.map((player) => player.id)
-  if (Array.isArray(selectedPlan?.batting_order) && selectedPlan.batting_order.length) {
-    return selectedPlan.batting_order
-  }
-
   const previousContinuousPlan = data.lineupPlans
     .map((plan) => ({
       event: data.events.find((event) => event.id === plan.event_id),
@@ -3719,15 +3718,23 @@ function getDefaultBattingOrder(data, selectedGame, selectedPlan) {
     ))
     .sort((a, b) => new Date(b.event.starts_at) - new Date(a.event.starts_at))[0]?.plan
 
-  if (!previousContinuousPlan) return rosterOrder
+  let continuousOrder = null
+  if (previousContinuousPlan) {
+    const previousOrder = previousContinuousPlan.batting_order.filter((id) => rosterOrder.includes(id))
+    const missingPlayers = rosterOrder.filter((id) => !previousOrder.includes(id))
+    const mergedOrder = [...previousOrder, ...missingPlayers]
+    const lastBatterIndex = mergedOrder.indexOf(previousContinuousPlan.defense_plan.__settings.lastCompletedBatterId)
+    continuousOrder = lastBatterIndex < 0 || mergedOrder.length < 2
+      ? mergedOrder
+      : [...mergedOrder.slice(lastBatterIndex), ...mergedOrder.slice(0, lastBatterIndex)]
+  }
 
-  const previousOrder = previousContinuousPlan.batting_order.filter((id) => rosterOrder.includes(id))
-  const missingPlayers = rosterOrder.filter((id) => !previousOrder.includes(id))
-  const mergedOrder = [...previousOrder, ...missingPlayers]
-  const lastBatterIndex = mergedOrder.indexOf(previousContinuousPlan.defense_plan.__settings.lastCompletedBatterId)
-
-  if (lastBatterIndex < 0 || mergedOrder.length < 2) return mergedOrder
-  return [...mergedOrder.slice(lastBatterIndex), ...mergedOrder.slice(0, lastBatterIndex)]
+  const selectedSettings = selectedPlan?.defense_plan?.__settings || {}
+  const selectedOrder = Array.isArray(selectedPlan?.batting_order) ? selectedPlan.batting_order : []
+  if (selectedOrder.length && (selectedSettings.battingOrderManual || !continuousOrder)) {
+    return selectedOrder
+  }
+  return continuousOrder || (selectedOrder.length ? selectedOrder : rosterOrder)
 }
 
 function EventRow({ event }) {
