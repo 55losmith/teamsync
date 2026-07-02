@@ -1600,7 +1600,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
       return
     }
     setSavedLineupAt(new Date().toISOString())
-    setMessage('Last batter saved. The next unsaved game will start with this player.')
+    setMessage('Last batter saved. The next unsaved game will start with the next player.')
     onRefresh()
   }
 
@@ -1945,7 +1945,7 @@ function LineupPage({ data, onPage, onRefresh, setMessage, team, readOnly = fals
               </label>
               {continuousBatting && (
                 <p>
-                  Mark the last batter used before saving this game. The next unsaved game will start with the marked player.
+                  Mark the last batter used before saving this game. The next unsaved game will start with the next player in the order.
                 </p>
               )}
             </div>
@@ -3755,7 +3755,7 @@ function getDefaultBattingOrder(data, selectedGame, selectedPlan) {
     const lastBatterIndex = mergedOrder.indexOf(previousContinuousPlan.defense_plan.__settings.lastCompletedBatterId)
     continuousOrder = lastBatterIndex < 0 || mergedOrder.length < 2
       ? mergedOrder
-      : [...mergedOrder.slice(lastBatterIndex), ...mergedOrder.slice(0, lastBatterIndex)]
+      : [...mergedOrder.slice(lastBatterIndex + 1), ...mergedOrder.slice(0, lastBatterIndex + 1)]
   }
 
   const selectedSettings = selectedPlan?.defense_plan?.__settings || {}
